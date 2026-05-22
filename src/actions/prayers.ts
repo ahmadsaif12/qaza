@@ -181,6 +181,10 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
   const dateStr = sevenDaysAgo.toISOString().split('T')[0];
 
   try {
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    const joinDate = user ? new Date(user.createdAt) : new Date();
+    const joinDateStr = joinDate.toISOString().split('T')[0];
+
     const logs = await db.query.prayerLogs.findMany({
       where: and(
         eq(prayerLogs.userId, userId),
@@ -189,30 +193,32 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
       )
     });
 
-    const consistency = [
-      { name: "Sun", prayers: 0 },
-      { name: "Mon", prayers: 0 },
-      { name: "Tue", prayers: 0 },
-      { name: "Wed", prayers: 0 },
-      { name: "Thu", prayers: 0 },
-      { name: "Fri", prayers: 0 },
-      { name: "Sat", prayers: 0 },
-    ];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const consistency = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayDate);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dStr = d.toISOString().split('T')[0];
+      
+      // Only include days starting from the user's join date
+      if (dStr >= joinDateStr) {
+        consistency.push({
+          name: dayNames[d.getUTCDay()],
+          date: dStr,
+          prayers: 0
+        });
+      }
+    }
 
     logs.forEach(log => {
-      const d = new Date(log.date);
-      // Use getUTCDay() because '2026-05-22' is parsed as midnight UTC.
-      // Server's local timezone (e.g. EDT) caused getDay() to shift backwards by 1 day!
-      consistency[d.getUTCDay()].prayers += 1;
+      const dayObj = consistency.find(d => d.date === log.date);
+      if (dayObj) {
+        dayObj.prayers += 1;
+      }
     });
 
-    const todayDay = todayDate.getUTCDay();
-    const sortedConsistency = [
-      ...consistency.slice(todayDay + 1),
-      ...consistency.slice(0, todayDay + 1)
-    ];
-
-    return { success: true, data: sortedConsistency };
+    return { success: true, data: consistency };
   } catch (error) {
     return { error: "Failed to fetch" };
   }

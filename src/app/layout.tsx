@@ -42,7 +42,18 @@ export default function RootLayout({
             {children}
           </div>
           <BottomNav />
-          <Toaster position="top-center" richColors />
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              classNames: {
+                toast: "group flex items-center gap-3 border border-border shadow-lg font-sans rounded-full px-5 py-4 w-auto",
+                success: "bg-card text-primary border-primary/30",
+                error: "bg-card text-destructive border-destructive/30",
+                info: "bg-card text-foreground border-border",
+                warning: "bg-card text-chart-3 border-chart-3/30",
+              }
+            }}
+          />
         </Providers>
       </body>
     </html>
