@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { useQuery } from "@tanstack/react-query"
-import { getWeeklyConsistency } from "@/actions/prayers"
+import { getWeeklyConsistency, getPrayerInsights } from "@/actions/prayers"
+import { Trophy, AlertCircle } from "lucide-react"
 
 export default function AnalyticsPage() {
   // Compute local date string reliably 
@@ -26,6 +27,14 @@ export default function AnalyticsPage() {
     { name: "Sat", prayers: 0 },
     { name: "Sun", prayers: 0 },
   ]
+
+  const { data: insightsRes } = useQuery({
+    queryKey: ['prayerInsights'],
+    queryFn: async () => await getPrayerInsights(),
+  })
+  
+  const mostPrayed = insightsRes?.data?.mostPrayed;
+  const mostMissed = insightsRes?.data?.mostMissed;
 
   if (isLoading) {
     return <div className="min-h-full flex items-center justify-center bg-background"><div className="animate-pulse h-16 w-16 bg-primary/20 rounded-full" /></div>
@@ -85,6 +94,25 @@ export default function AnalyticsPage() {
             </p>
           </CardContent>
         </Card>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-4 flex flex-col items-center text-center">
+              <Trophy className="w-8 h-8 text-amber-500 mb-2" />
+              <h3 className="text-sm font-medium text-muted-foreground">Most Prayed</h3>
+              <p className="text-lg font-bold text-foreground mt-1">{mostPrayed?.name || "N/A"}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{mostPrayed?.count ? `${mostPrayed.count} times` : 'Keep tracking!'}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-4 flex flex-col items-center text-center">
+              <AlertCircle className="w-8 h-8 text-destructive/80 mb-2" />
+              <h3 className="text-sm font-medium text-muted-foreground">Needs Focus</h3>
+              <p className="text-lg font-bold text-foreground mt-1">{mostMissed?.name || "N/A"}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{mostMissed?.count ? `${mostMissed.count} missed` : 'All caught up!'}</p>
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </main>
   )

@@ -21,36 +21,28 @@ export function QazaClient({ stats }: QazaClientProps) {
     <div className="w-full max-w-md space-y-6">
       
       {/* Visualizations */}
-      <div className="space-y-4">
-        <DonutChart totalMissed={stats.donut.totalMissed} totalCovered={stats.donut.totalCovered} />
-        
-        <div className="flex items-center gap-4 bg-primary/5 border border-primary/10 rounded-2xl p-4">
-          <div className="flex-1">
-            <h4 className="text-sm font-semibold text-foreground">Weekly Additions</h4>
-            <p className="text-xs text-muted-foreground mt-1">Missed in the last 7 days</p>
-          </div>
-          <div className="text-2xl font-bold text-primary">+{stats.weeklyMissed}</div>
-        </div>
-      </div>
+      <DonutChart 
+        totalMissed={stats.donut.totalMissed} 
+        totalCovered={stats.donut.totalCovered} 
+        weeklyMissed={stats.weeklyMissed} 
+      />
 
       <div className="pt-2">
         <h3 className="text-lg font-bold mb-4">Your Qaza List</h3>
-        <div className="space-y-3">
-          {Object.entries(stats.backlog).map(([prayer, count]) => {
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(stats.backlog).map(([prayer, count], index, arr) => {
+            const isLast = index === arr.length - 1;
             return (
               <Card 
                 key={prayer} 
                 onClick={() => setSelectedPrayer(prayer)}
-                className="border-border/60 shadow-sm bg-card hover:border-primary/30 transition-all overflow-hidden cursor-pointer active:scale-[0.98]"
+                className={`border-border/60 shadow-sm bg-card hover:border-primary/30 transition-all overflow-hidden cursor-pointer active:scale-[0.98] flex flex-col justify-center p-4 min-h-[100px] ${isLast ? 'col-span-2 mx-auto w-full max-w-[50%]' : ''}`}
               >
-                <div className="flex items-center justify-between p-5">
-                  <div>
-                    <h3 className="text-lg font-bold">{prayer}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      <span className="font-semibold text-foreground">{count}</span> remaining
-                    </p>
-                  </div>
-                  <ChevronRight className="text-muted-foreground/50" />
+                <div className="flex flex-col items-center text-center">
+                  <h3 className="text-lg font-bold">{prayer}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="font-semibold text-foreground text-sm">{count}</span> remaining
+                  </p>
                 </div>
               </Card>
             )

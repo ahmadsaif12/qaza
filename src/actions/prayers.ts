@@ -410,3 +410,75 @@ export async function completeDetailedQaza(id: string, type: 'log' | 'item') {
   }
 }
 
+export async function getPrayerInsights() {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+  const userId = session.user.id;
+  
+  try {
+    const completedCounts = await db.select({
+      prayerName: prayerLogs.prayerName,
+      count: count(),
+    }).from(prayerLogs)
+      .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["completed", "qaza_completed"])))
+      .groupBy(prayerLogs.prayerName);
+
+    const missedLogs = await db.select({
+      prayerName: prayerLogs.prayerName,
+      count: count(),
+    }).from(prayerLogs)
+      .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "missed")))
+      .groupBy(prayerLogs.prayerName);
+      
+    const missedItems = await db.select({
+      prayerName: qazaItems.prayerName,
+      count: count(),
+    }).from(qazaItems)
+      .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, false)))
+      .groupBy(qazaItems.prayerName);
+
+    const missedMap: Record<string, number> = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+    missedLogs.forEach(c => {
+       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1);
+       if (n in missedMap) missedMap[n] += c.count;
+    });
+    missedItems.forEach(c => {
+       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1);
+       if (n in missedMap) missedMap[n] += c.count;
+    });
+
+    let mostPrayed = { name: "None", count: 0 };
+    completedCounts.forEach(c => {
+       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1);
+       if (c.count > mostPrayed.count) {
+          mostPrayed = { name: n, count: c.count };
+       }
+    });
+
+    let mostMissed = { name: "None", count: 0 };
+    Object.entries(missedMap).forEach(([name, count]) => {
+       if (count > mostMissed.count) {
+          mostMissed = { name, count };
+       }
+    });
+
+    return { success: true, data: { mostPrayed, mostMissed } };
+  } catch (error) {
+    return { error: "Failed to fetch insights" };
+  }
+}
+
+export async function resetAllData() {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+  const userId = session.user.id;
+
+  try {
+    await db.delete(prayerLogs).where(eq(prayerLogs.userId, userId));
+    await db.delete(qazaItems).where(eq(qazaItems.userId, userId));
+    return { success: true };
+  } catch (error) {
+    return { error: "Failed to reset data" };
+  }
+}
+

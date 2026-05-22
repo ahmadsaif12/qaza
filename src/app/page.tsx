@@ -11,17 +11,7 @@ export default async function Home() {
 
   return (
     <main className="flex min-h-full flex-col items-center p-6 bg-background selection:bg-primary/20">
-      <header className="w-full max-w-md flex justify-between items-center py-6 mb-6 border-b border-border/50">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Assalamu Alaikum, {session.user.name?.split(' ')[0] || 'Friend'}</h1>
-          <p className="text-muted-foreground text-sm mt-1">Let's catch up together.</p>
-        </div>
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shadow-sm border border-primary/20">
-          {session.user.name?.charAt(0) || 'U'}
-        </div>
-      </header>
-
-      <HomeClient />
+      <HomeClient userName={session.user.name?.split(' ')[0] || 'Friend'} />
     </main>
   )
 }

@@ -21,6 +21,8 @@ interface AppState {
   removeMutations: (ids: string[]) => void
   userLocation: { lat: number; lng: number } | null
   setUserLocation: (location: { lat: number; lng: number }) => void
+  timeFormat: '12h' | '24h'
+  setTimeFormat: (format: '12h' | '24h') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -35,6 +37,8 @@ export const useAppStore = create<AppState>()(
       })),
       userLocation: null,
       setUserLocation: (userLocation) => set({ userLocation }),
+      timeFormat: '12h',
+      setTimeFormat: (timeFormat) => set({ timeFormat }),
     }),
     {
       name: 'qazatrack-storage',

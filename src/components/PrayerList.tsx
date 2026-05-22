@@ -3,7 +3,7 @@
 import { usePrayerTimes } from "@/hooks/usePrayerTimes"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useAppStore } from "@/store"
 import { toast } from "sonner"
 import { useQuery } from "@tanstack/react-query"
@@ -23,6 +23,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   
   const addMutation = useAppStore(state => state.addMutation)
   const offlineMutations = useAppStore(state => state.offlineMutations)
+  const timeFormatPref = useAppStore(state => state.timeFormat)
 
   const { data: dbPrayersRes, isLoading: isDbLoading } = useQuery({
     queryKey: ['prayers', dateStr],
@@ -58,6 +59,45 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     onProgressChange?.(completedCount, 5);
   }, [completedCount, onProgressChange]);
 
+  const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!timings || dateStr !== format(new Date(), "yyyy-MM-dd")) {
+      setCurrentPrayer(null);
+      return;
+    }
+
+    const calculateCurrent = () => {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      
+      const pTimes = requiredPrayers.map(p => {
+        const t = (timings as any)[p] as string;
+        if (!t || t === "--:--") return { name: p, mins: 0 };
+        const [h, m] = t.split(":");
+        return { name: p, mins: parseInt(h, 10) * 60 + parseInt(m, 10) };
+      });
+
+      let current = null;
+      for (let i = pTimes.length - 1; i >= 0; i--) {
+        if (nowMins >= pTimes[i].mins) {
+          current = pTimes[i].name;
+          break;
+        }
+      }
+      
+      if (!current && nowMins < pTimes[0].mins) {
+        current = "Isha";
+      }
+
+      setCurrentPrayer(current);
+    };
+
+    calculateCurrent();
+    const interval = setInterval(calculateCurrent, 60000);
+    return () => clearInterval(interval);
+  }, [timings, dateStr]);
+
   if (isTimingsLoading || isDbLoading) {
     return <div className="animate-pulse space-y-3">
       {requiredPrayers.map((p) => (
@@ -90,8 +130,16 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   return (
     <div className="w-full space-y-3 pb-24">
       {requiredPrayers.map((prayer) => {
-        const time = timings ? (timings as any)[prayer] : "--:--"
+        let time = timings ? (timings as any)[prayer] : "--:--"
         const isDone = completed[prayer]
+
+        if (time !== "--:--" && timeFormatPref === '12h') {
+          const [hourStr, minStr] = time.split(":")
+          let hour = parseInt(hourStr, 10)
+          const ampm = hour >= 12 ? "PM" : "AM"
+          hour = hour % 12 || 12
+          time = `${hour}:${minStr} ${ampm}`
+        }
 
         return (
           <motion.div
@@ -108,9 +156,16 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             `}
           >
             <div>
-              <h3 className={`font-semibold text-lg transition-colors ${isDone ? 'text-primary' : 'text-foreground'}`}>
-                {prayer}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className={`font-semibold text-lg transition-colors ${isDone ? 'text-primary' : 'text-foreground'}`}>
+                  {prayer}
+                </h3>
+                {currentPrayer === prayer && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-full animate-pulse shadow-sm">
+                    Now
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{time}</p>
             </div>
             

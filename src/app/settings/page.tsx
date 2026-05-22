@@ -3,6 +3,9 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PushToggle } from "@/components/PushToggle"
+import { ResetDataButton } from "@/components/ResetDataButton"
+import { TimeFormatToggle } from "@/components/TimeFormatToggle"
+import { ThemeToggle } from "@/components/ThemeToggle"
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -16,33 +19,54 @@ export default async function SettingsPage() {
       </header>
 
       <section className="w-full max-w-md space-y-4">
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Notifications</CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Main Settings Card */}
+        <Card className="border-border/60 shadow-sm overflow-hidden p-6 flex flex-col gap-8">
+          
+          {/* Notifications */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Notifications</h2>
             <PushToggle />
-          </CardContent>
+          </div>
+
+          {/* Preferences */}
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Appearance</h2>
+              <ThemeToggle />
+            </div>
+            
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Time Format</h2>
+              <TimeFormatToggle />
+            </div>
+          </div>
+
+          {/* Account Profile */}
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Account Profile</h2>
+            <p className="text-sm text-muted-foreground">Logged in as {session.user.email}</p>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="-mx-6 -mb-6 p-6 bg-destructive/5 mt-2">
+            <h2 className="text-lg font-semibold text-destructive mb-1">Danger Zone</h2>
+            <p className="text-sm text-destructive/80 mb-4">Permanent destructive actions.</p>
+            <ResetDataButton />
+          </div>
         </Card>
 
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Account Profile</CardTitle>
-            <CardDescription>Logged in as {session.user.email}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form
-              action={async () => {
-                "use server"
-                await signOut({ redirectTo: "/login" })
-              }}
-            >
-              <Button type="submit" variant="destructive" className="w-full rounded-xl h-11 font-medium">
-                Log Out
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        {/* Separate Log Out Button */}
+        <form
+          action={async () => {
+            "use server"
+            await signOut({ redirectTo: "/login" })
+          }}
+          className="pt-4"
+        >
+          <Button type="submit" variant="secondary" className="w-full rounded-xl h-12 font-semibold bg-muted text-foreground hover:bg-muted/80 transition-colors">
+            Log Out
+          </Button>
+        </form>
       </section>
     </main>
   )

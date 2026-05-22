@@ -8,10 +8,17 @@ import { format, isSameDay } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
 import { getWeeklyConsistency } from "@/actions/prayers"
 
-export function HomeClient() {
+import Link from "next/link"
+import { Star } from "lucide-react"
+
+import { motion, AnimatePresence } from "framer-motion"
+import { OnboardingWizard } from "@/components/OnboardingWizard"
+
+export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [progress, setProgress] = useState({ completed: 0, total: 5 })
   const [isMounted, setIsMounted] = useState(false)
+  const [showGreeting, setShowGreeting] = useState(true)
 
   const handleProgressChange = useCallback((completed: number, total: number) => {
     setProgress(prev => (prev.completed === completed && prev.total === total) ? prev : { completed, total })
@@ -19,6 +26,8 @@ export function HomeClient() {
 
   useEffect(() => {
     setIsMounted(true)
+    const t = setTimeout(() => setShowGreeting(false), 2500)
+    return () => clearTimeout(t)
   }, [])
 
   const isToday = isMounted ? isSameDay(selectedDate, new Date()) : true
@@ -28,32 +37,81 @@ export function HomeClient() {
     queryFn: async () => await getWeeklyConsistency(),
   })
 
-  const totalWeekly = consistencyRes?.success && consistencyRes.data 
-    ? consistencyRes.data.reduce((acc: number, curr: any) => acc + curr.prayers, 0)
-    : 0;
+  let totalWeekly = 0;
+  let streak = 0;
+  if (consistencyRes?.success && consistencyRes.data) {
+    const data = consistencyRes.data;
+    totalWeekly = data.reduce((acc: number, curr: any) => acc + curr.prayers, 0);
+    // data[6] is today, data[5] is yesterday
+    for (let i = 5; i >= 0; i--) {
+      if (data[i].prayers >= 5) streak++;
+      else break;
+    }
+    if (data[6] && data[6].prayers >= 5) {
+      streak++;
+    }
+  }
   
   const weeklyPercentage = Math.round((totalWeekly / 35) * 100);
   
   return (
-    <div className="w-full max-w-md space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">
-            {isToday ? "Today's Prayers" : format(selectedDate, "MMMM d, yyyy")}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {isToday ? "Stay consistent, stay blessed." : "Reviewing past logs."}
-          </p>
+    <div className="w-full max-w-md space-y-4">
+      <div className="flex items-center justify-between h-[48px]">
+        <div className="relative flex-1 h-full">
+          <AnimatePresence mode="wait">
+            {showGreeting ? (
+              <motion.div 
+                key="greeting"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0"
+              >
+                <h2 className="text-xl font-bold text-foreground">
+                  Assalamu Alaikum, {userName}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Let's catch up together.
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="date"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0"
+              >
+                <h2 className="text-xl font-bold text-foreground">
+                  {isToday ? "Today's Prayers" : format(selectedDate, "MMMM d, yyyy")}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {isToday ? "Stay consistent, stay blessed." : "Reviewing past logs."}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         <DailyProgress completed={progress.completed} total={progress.total} />
       </div>
 
-      <div className="flex items-center gap-4 bg-primary/5 border border-primary/10 rounded-2xl p-4">
-        <div className="flex-1">
-          <h4 className="text-sm font-semibold text-foreground">Weekly Completion</h4>
-          <p className="text-xs text-muted-foreground mt-1">Based on the last 7 days</p>
+      <div className="flex items-stretch gap-3 h-[72px]">
+        <div className="flex-1 flex items-center gap-3 bg-primary/5 border border-primary/10 rounded-2xl px-4">
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold text-foreground leading-tight">Weekly</h4>
+            <p className="text-xs text-muted-foreground mt-0.5">Last 7 days</p>
+          </div>
+          <div className="text-2xl font-bold text-primary">{weeklyPercentage}%</div>
         </div>
-        <div className="text-2xl font-bold text-primary">{weeklyPercentage}%</div>
+
+        <Link href="/analytics" className="h-full">
+          <div className="h-full flex flex-col items-center justify-center bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 transition-transform hover:scale-105 active:scale-95">
+             <Star className="text-amber-500 fill-amber-500 mb-1" size={20} />
+             <span className="font-bold text-amber-600 text-sm leading-none">{streak} <span className="text-[10px]">Day</span></span>
+          </div>
+        </Link>
       </div>
 
       <DateStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
@@ -62,6 +120,8 @@ export function HomeClient() {
         selectedDate={selectedDate} 
         onProgressChange={handleProgressChange} 
       />
+
+      <OnboardingWizard />
     </div>
   )
 }
