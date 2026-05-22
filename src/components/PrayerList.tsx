@@ -63,7 +63,15 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     </div>
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isFuture = dateStr > todayStr;
+
   const handleToggle = (prayer: string) => {
+    if (isFuture) {
+      toast.error("You cannot log prayers for future dates!");
+      return;
+    }
+
     const isCompleted = !completed[prayer]
     
     if (isCompleted) {
@@ -90,8 +98,10 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             key={prayer}
             onClick={() => handleToggle(prayer)}
             className={`
-              p-5 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer transition-all border
-              ${isDone ? 'bg-primary/5 border-primary/30' : 'bg-card border-border/60 hover:border-primary/30'}
+              p-5 rounded-2xl flex items-center justify-between transition-all border
+              ${isFuture ? 'bg-muted/30 border-border/30 cursor-not-allowed opacity-60' : 
+                isDone ? 'bg-primary/5 border-primary/30 shadow-sm cursor-pointer' : 
+                'bg-card border-border/60 hover:border-primary/30 shadow-sm cursor-pointer'}
             `}
           >
             <div>
