@@ -34,11 +34,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${outfit.variable} h-full antialiased`}
+      className={`${outfit.variable} antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="h-[100dvh] flex flex-col font-sans overflow-hidden overscroll-none bg-background">
         <Providers>
-          {children}
+          <div className="flex-1 overflow-y-auto overscroll-y-contain w-full">
+            {children}
+          </div>
           <BottomNav />
           <Toaster position="top-center" richColors />
         </Providers>

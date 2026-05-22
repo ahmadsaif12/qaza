@@ -10,7 +10,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-6 bg-background selection:bg-primary/20">
+    <main className="flex min-h-full flex-col items-center p-6 bg-background selection:bg-primary/20">
       <header className="w-full max-w-md flex justify-between items-center py-6 mb-6 border-b border-border/50">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Assalamu Alaikum, {session.user.name?.split(' ')[0] || 'Friend'}</h1>

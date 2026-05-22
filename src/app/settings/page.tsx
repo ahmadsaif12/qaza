@@ -9,7 +9,7 @@ export default async function SettingsPage() {
   if (!session?.user) redirect("/login")
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-6 bg-background pb-24">
+    <main className="flex min-h-full flex-col items-center p-6 bg-background pb-24">
       <header className="w-full max-w-md py-6 mb-4 border-b border-border/50 text-center">
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your account and preferences.</p>

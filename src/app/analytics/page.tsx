@@ -22,11 +22,11 @@ export default function AnalyticsPage() {
   ]
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse h-16 w-16 bg-primary/20 rounded-full" /></div>
+    return <div className="min-h-full flex items-center justify-center bg-background"><div className="animate-pulse h-16 w-16 bg-primary/20 rounded-full" /></div>
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-6 bg-background pb-24">
+    <main className="flex min-h-full flex-col items-center p-6 bg-background pb-24">
       <header className="w-full max-w-md py-6 mb-4 border-b border-border/50 text-center">
         <h1 className="text-2xl font-bold text-foreground">Your Review</h1>
         <p className="text-muted-foreground text-sm mt-1">Alhamdulillah, look at your progress.</p>
