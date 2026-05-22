@@ -2,6 +2,7 @@ import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { PushToggle } from "@/components/PushToggle"
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -15,6 +16,15 @@ export default async function SettingsPage() {
       </header>
 
       <section className="w-full max-w-md space-y-4">
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Notifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PushToggle />
+          </CardContent>
+        </Card>
+
         <Card className="border-border/60 shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Account Profile</CardTitle>
