@@ -3,7 +3,7 @@
 import { usePrayerTimes } from "@/hooks/usePrayerTimes"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useAppStore } from "@/store"
 import { toast } from "sonner"
 import { useQuery } from "@tanstack/react-query"
@@ -19,7 +19,7 @@ interface PrayerListProps {
 export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) {
   const dateStr = selectedDate.toISOString().split('T')[0]
   const { data: timings, isLoading: isTimingsLoading } = usePrayerTimes(dateStr)
-  const [completed, setCompleted] = useState<Record<string, boolean>>({})
+  
   const addMutation = useAppStore(state => state.addMutation)
   const offlineMutations = useAppStore(state => state.offlineMutations)
 
@@ -28,27 +28,32 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     queryFn: async () => await getTodayPrayers(dateStr),
   })
 
-  useEffect(() => {
-    let newCompletedCount = 0;
+  // Compute completed state instantly from DB results + pending offline mutations
+  const completed = useMemo(() => {
+    const state: Record<string, boolean> = {};
+    
+    // 1. Start with database state
     if (dbPrayersRes?.success && dbPrayersRes.data) {
-      const initialState: Record<string, boolean> = {};
       dbPrayersRes.data.forEach((log: any) => {
-        initialState[log.prayerName] = log.status === "completed";
+        state[log.prayerName] = log.status === "completed";
       });
-      
-      offlineMutations.forEach(mut => {
-        if (mut.type === "LOG_PRAYER" && mut.payload.date.startsWith(dateStr)) {
-          initialState[mut.payload.prayerName] = mut.payload.status === "completed";
-        }
-      });
-      
-      setCompleted(initialState);
-      newCompletedCount = Object.values(initialState).filter(Boolean).length;
-    } else {
-      setCompleted({});
     }
-    onProgressChange?.(newCompletedCount, 5);
-  }, [dbPrayersRes, offlineMutations.length, dateStr]) 
+    
+    // 2. Overlay any pending local mutations (last mutation wins)
+    offlineMutations.forEach(mut => {
+      if (mut.type === "LOG_PRAYER" && mut.payload.date.startsWith(dateStr)) {
+        state[mut.payload.prayerName] = mut.payload.status === "completed";
+      }
+    });
+    
+    return state;
+  }, [dbPrayersRes, offlineMutations, dateStr]);
+
+  const completedCount = Object.values(completed).filter(Boolean).length;
+
+  useEffect(() => {
+    onProgressChange?.(completedCount, 5);
+  }, [completedCount, onProgressChange]);
 
   if (isTimingsLoading || isDbLoading) {
     return <div className="animate-pulse space-y-3">
@@ -60,8 +65,6 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
 
   const handleToggle = (prayer: string) => {
     const isCompleted = !completed[prayer]
-    const newCompleted = { ...completed, [prayer]: isCompleted }
-    setCompleted(newCompleted)
     
     if (isCompleted) {
       toast.success(`Alhamdulillah, ${prayer} logged!`)
@@ -71,9 +74,6 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
       type: "LOG_PRAYER",
       payload: { prayerName: prayer, date: selectedDate.toISOString(), status: isCompleted ? "completed" : "missed" }
     })
-    
-    const count = Object.values(newCompleted).filter(Boolean).length;
-    onProgressChange?.(count, 5);
   }
 
   return (
@@ -115,3 +115,4 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     </div>
   )
 }
+

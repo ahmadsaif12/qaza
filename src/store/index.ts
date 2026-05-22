@@ -18,7 +18,7 @@ const storage = {
 interface AppState {
   offlineMutations: any[]
   addMutation: (mutation: any) => void
-  clearMutations: () => void
+  removeMutations: (ids: string[]) => void
   userLocation: { lat: number; lng: number } | null
   setUserLocation: (location: { lat: number; lng: number }) => void
 }
@@ -27,8 +27,12 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       offlineMutations: [],
-      addMutation: (mutation) => set((state) => ({ offlineMutations: [...state.offlineMutations, mutation] })),
-      clearMutations: () => set({ offlineMutations: [] }),
+      addMutation: (mutation) => set((state) => ({ 
+        offlineMutations: [...state.offlineMutations, { ...mutation, id: mutation.id || crypto.randomUUID() }] 
+      })),
+      removeMutations: (ids) => set((state) => ({ 
+        offlineMutations: state.offlineMutations.filter(m => !ids.includes(m.id)) 
+      })),
       userLocation: null,
       setUserLocation: (userLocation) => set({ userLocation }),
     }),
