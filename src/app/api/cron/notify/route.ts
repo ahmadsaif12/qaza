@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import webpush from 'web-push';
-import { Coordinates, CalculationMethod, PrayerTimes } from 'adhan';
-import { prayerLogs, users } from '@/db/schema';
+import { prayerLogs } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -35,92 +34,53 @@ export async function GET(req: Request) {
     });
 
     const now = new Date();
-    const currentDateStr = now.toISOString().split('T')[0];
     let sentCount = 0;
 
     const notifications = subs.map(async (sub) => {
-      // @ts-ignore - drizzle with relation
-      const user = sub.user as any;
-      if (!user || user.latitude === null || user.longitude === null) return;
+      // @ts-ignore
+      const user = sub.user;
+      if (!user) return;
 
-      const coords = new Coordinates(user.latitude, user.longitude);
-      
-      // Determine calculation method based on user preferences. Default to ISNA (2)
-      let params = CalculationMethod.NorthAmerica();
-      switch (user.calcMethod) {
-        case 1: params = CalculationMethod.UmmAlQura(); break;
-        case 2: params = CalculationMethod.NorthAmerica(); break;
-        case 3: params = CalculationMethod.MuslimWorldLeague(); break;
-        case 4: params = CalculationMethod.MoonsightingCommittee(); break;
-        case 5: params = CalculationMethod.Egyptian(); break;
-        case 6: params = CalculationMethod.Karachi(); break;
+      // Determine the user's local date
+      let localDateStr = now.toISOString().split('T')[0];
+      if (user.timezone) {
+        try {
+          localDateStr = now.toLocaleDateString('en-CA', { timeZone: user.timezone });
+        } catch (e) {
+          console.warn("Invalid timezone", user.timezone);
+        }
       }
 
-      // Calculate prayer times for this user's location
-      const prayerTimes = new PrayerTimes(coords, now, params);
+      // Check how many prayers they logged today
+      const logsToday = await db.query.prayerLogs.findMany({
+        where: and(
+          eq(prayerLogs.userId, user.id),
+          eq(prayerLogs.date, localDateStr)
+        )
+      });
 
-      // Check which prayer was ~15 minutes ago
-      const prayers = [
-        { name: 'Fajr', time: prayerTimes.fajr },
-        { name: 'Dhuhr', time: prayerTimes.dhuhr },
-        { name: 'Asr', time: prayerTimes.asr },
-        { name: 'Maghrib', time: prayerTimes.maghrib },
-        { name: 'Isha', time: prayerTimes.isha },
-      ];
+      const completedCount = logsToday.filter(l => l.status === 'completed' || l.status === 'qaza_completed').length;
 
-      for (const prayer of prayers) {
-        if (!prayer.time) continue;
-
-        const diffMs = now.getTime() - prayer.time.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-
-        if (diffMins >= 15 && diffMins < 30) {
-          
-          // Use user's timezone if available, otherwise fallback to UTC
-          let localDateStr = currentDateStr;
-          if (user.timezone) {
-            try {
-               localDateStr = now.toLocaleDateString('en-CA', { timeZone: user.timezone });
-            } catch (e) {
-               console.warn("Invalid timezone", user.timezone);
-            }
+      // If they haven't prayed all 5, send a reminder
+      if (completedCount < 5) {
+        const payload = JSON.stringify({
+          title: `End of Day Reminder`,
+          body: `You've logged ${completedCount}/5 prayers today. Open QazaTrack to log the rest before the day ends!`,
+          payload: {
+            date: localDateStr
           }
+        });
 
-          const existingLog = await db.query.prayerLogs.findFirst({
-            where: and(
-              eq(prayerLogs.userId, user.id),
-              eq(prayerLogs.prayerName, prayer.name.toLowerCase()),
-              eq(prayerLogs.date, localDateStr)
-            )
-          });
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        };
 
-          // If already logged (as completed, qaza, or excused), don't bother them
-          if (existingLog) continue;
-
-          // Send the notification!
-          const payload = JSON.stringify({
-            title: `${prayer.name} Reminder`,
-            body: `It's been 15 minutes since ${prayer.name}. Have you offered your prayer?`,
-            payload: {
-              prayerName: prayer.name,
-              date: currentDateStr
-            }
-          });
-
-          const pushSubscription = {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth }
-          };
-
-          try {
-            await webpush.sendNotification(pushSubscription, payload);
-            sentCount++;
-          } catch (e) {
-             console.error('Error sending push to', user.id, e);
-          }
-          
-          // Only process one prayer notification per cron tick per user
-          break;
+        try {
+          await webpush.sendNotification(pushSubscription, payload);
+          sentCount++;
+        } catch (e) {
+           console.error('Error sending push to', user.id, e);
         }
       }
     });
