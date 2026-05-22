@@ -34,7 +34,7 @@ self.addEventListener('push', (event) => {
         { action: "completed", title: "Yes, I prayed" },
         { action: "missed", title: "No, log to Qaza" }
       ]
-    })
+    } as any)
   );
 });
 
