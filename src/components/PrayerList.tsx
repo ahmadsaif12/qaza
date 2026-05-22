@@ -35,14 +35,16 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     // 1. Start with database state
     if (dbPrayersRes?.success && dbPrayersRes.data) {
       dbPrayersRes.data.forEach((log: any) => {
-        state[log.prayerName] = log.status === "completed";
+        const pNameLower = log.prayerName.charAt(0).toUpperCase() + log.prayerName.slice(1).toLowerCase();
+        state[pNameLower] = log.status === "completed" || log.status === "qaza_completed";
+        state[log.prayerName] = log.status === "completed" || log.status === "qaza_completed";
       });
     }
     
     // 2. Overlay any pending local mutations (last mutation wins)
     offlineMutations.forEach(mut => {
       if (mut.type === "LOG_PRAYER" && mut.payload.date.startsWith(dateStr)) {
-        state[mut.payload.prayerName] = mut.payload.status === "completed";
+        state[mut.payload.prayerName] = mut.payload.status === "completed" || mut.payload.status === "qaza_completed";
       }
     });
     

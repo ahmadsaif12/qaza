@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 
     const notifications = subs.map(async (sub) => {
       // @ts-ignore - drizzle with relation
-      const user = sub.user;
+      const user = sub.user as any;
       if (!user || user.latitude === null || user.longitude === null) return;
 
       const coords = new Coordinates(user.latitude, user.longitude);

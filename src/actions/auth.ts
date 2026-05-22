@@ -203,3 +203,108 @@ export async function resendOtp(formData: FormData) {
 export async function googleSignIn() {
   await signIn("google", { redirectTo: "/" })
 }
+
+const passwordResetSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+})
+
+export async function sendForgotPasswordOtp(formData: FormData) {
+  try {
+    const email = formData.get("email") as string
+    if (!email) return { error: "Email is required" }
+
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, email)
+    })
+
+    if (!existingUser) {
+      return { success: true }
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+
+    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+
+    const expires = new Date(Date.now() + 15 * 60 * 1000)
+    await db.insert(verificationTokens).values({
+      identifier: email,
+      token: otp,
+      expires
+    })
+
+    if (process.env.SMTP_HOST) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      })
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: email,
+        subject: "Reset your password for Qaza Tracker",
+        text: `Your password reset code is: ${otp}`,
+        html: `<p>Your password reset code is: <strong>${otp}</strong></p>`
+      })
+    } else {
+       console.warn("SMTP settings not configured. Forgot password OTP generated:", otp);
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Forgot password OTP error", error)
+    return { error: "Failed to send reset code" }
+  }
+}
+
+export async function resetPassword(formData: FormData) {
+  try {
+    const email = formData.get("email") as string
+    const otp = formData.get("otp") as string
+    const newPassword = formData.get("newPassword") as string
+
+    if (!email || !otp || !newPassword) {
+      return { error: "Missing required fields" }
+    }
+
+    const parsed = passwordResetSchema.safeParse({ password: newPassword })
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message || "Invalid password" }
+    }
+
+    const tokenRecord = await db.query.verificationTokens.findFirst({
+      where: and(
+        eq(verificationTokens.identifier, email),
+        eq(verificationTokens.token, otp)
+      )
+    })
+
+    if (!tokenRecord) {
+      return { error: "Invalid OTP code" }
+    }
+
+    if (new Date() > new Date(tokenRecord.expires)) {
+      return { error: "OTP expired" }
+    }
+
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(newPassword, salt)
+
+    await db.update(users)
+      .set({ 
+        password: hashedPassword,
+        emailVerified: new Date() 
+      })
+      .where(eq(users.email, email))
+
+    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+
+    return { success: true }
+  } catch (error) {
+    console.error("Password reset error", error)
+    return { error: "An unexpected error occurred" }
+  }
+}

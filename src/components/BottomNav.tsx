@@ -7,7 +7,7 @@ import { motion } from "framer-motion"
 
 export function BottomNav() {
   const pathname = usePathname()
-  if (pathname === "/login" || pathname === "/register") return null
+  if (pathname === "/login" || pathname === "/register" || pathname === "/verify" || pathname === "/forgot-password") return null
 
   const navItems = [
     { name: "Today", href: "/", icon: Home },

@@ -57,7 +57,12 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
               <Input id="email" name="email" type="email" placeholder="test@example.com" required />
             </div>
             <div className="space-y-2 text-left">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input id="password" name="password" type="password" placeholder="password" required />
             </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl h-11">
