@@ -268,9 +268,12 @@ export async function autoBackfillMissedPrayers(userId: string) {
     if (!user) return { error: "User not found" };
 
     const startDate = new Date(user.createdAt);
+    // Set to start of the day in local time/UTC so it correctly compares with yesterday
+    startDate.setHours(0, 0, 0, 0);
     
     // Safety check: Don't backfill more than 30 days at once to prevent timeouts
     const maxBackfillDate = new Date();
+    maxBackfillDate.setHours(0, 0, 0, 0);
     maxBackfillDate.setDate(maxBackfillDate.getDate() - 30);
     if (startDate < maxBackfillDate) {
       startDate.setTime(maxBackfillDate.getTime());
@@ -282,7 +285,7 @@ export async function autoBackfillMissedPrayers(userId: string) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (startDate >= yesterday) return { success: true };
+    if (startDate > yesterday) return { success: true };
 
     const startStr = startDate.toISOString().split('T')[0];
 
