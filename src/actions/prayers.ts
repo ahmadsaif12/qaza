@@ -335,10 +335,13 @@ export async function getDetailedQaza(prayerName: string) {
   const userId = session.user.id;
 
   try {
+    const pNameLower = prayerName.toLowerCase();
+    const pNameTitle = pNameLower.charAt(0).toUpperCase() + pNameLower.slice(1);
+
     const logs = await db.query.prayerLogs.findMany({
       where: and(
         eq(prayerLogs.userId, userId),
-        eq(prayerLogs.prayerName, prayerName.toLowerCase()),
+        inArray(prayerLogs.prayerName, [pNameLower, pNameTitle]),
         eq(prayerLogs.status, "missed")
       ),
       orderBy: (prayerLogs, { desc }) => [desc(prayerLogs.date)]
@@ -347,7 +350,7 @@ export async function getDetailedQaza(prayerName: string) {
     const items = await db.query.qazaItems.findMany({
       where: and(
         eq(qazaItems.userId, userId),
-        eq(qazaItems.prayerName, prayerName.toLowerCase()),
+        inArray(qazaItems.prayerName, [pNameLower, pNameTitle]),
         eq(qazaItems.isCompleted, false)
       )
     });
