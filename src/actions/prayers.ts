@@ -194,7 +194,7 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
     });
 
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const consistency = [];
+    const consistency: { name: string, date: string, prayers: number }[] = [];
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date(todayDate);
