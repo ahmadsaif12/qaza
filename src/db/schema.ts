@@ -5,7 +5,8 @@ import {
   text,
   primaryKey,
   integer,
-  date
+  date,
+  doublePrecision
 } from "drizzle-orm/pg-core"
 import type { AdapterAccount } from "next-auth/adapters"
 
@@ -21,6 +22,8 @@ export const users = pgTable("user", {
   // App specific user preferences
   calcMethod: integer("calcMethod").default(2), // ISNA by default
   timezone: text("timezone"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
 })
 

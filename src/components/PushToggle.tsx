@@ -50,6 +50,21 @@ export function PushToggle() {
         return
       }
 
+      let lat = null;
+      let lng = null;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } catch (err) {
+        console.warn("Geolocation failed", err);
+        toast.warning("Location not provided. Accurate times might not work.");
+      }
+
       const reg = await navigator.serviceWorker.ready
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidPublicKey) {
@@ -67,7 +82,10 @@ export function PushToggle() {
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub)
+        body: JSON.stringify({
+          subscription: sub,
+          location: { lat, lng, timezone }
+        })
       })
 
       if (!res.ok) throw new Error("Failed to save subscription")

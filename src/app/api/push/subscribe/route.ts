@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { pushSubscriptions } from '@/db/schema';
+import { pushSubscriptions, users } from '@/db/schema';
 import { auth } from '@/auth';
 import { eq, and } from 'drizzle-orm';
 
@@ -11,10 +11,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const subscription = await req.json();
+    const body = await req.json();
+    const subscription = body.subscription || body; // Support old and new format
+    const location = body.location;
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json({ error: 'Invalid subscription object' }, { status: 400 });
+    }
+
+    if (location && location.lat && location.lng) {
+      // Update user location
+      await db.update(users).set({
+        latitude: location.lat,
+        longitude: location.lng,
+        timezone: location.timezone
+      }).where(eq(users.id, session.user.id));
     }
 
     // Check if exactly this endpoint is already subscribed for the user
