@@ -71,19 +71,26 @@ export async function GET(req: Request) {
       for (const prayer of prayers) {
         if (!prayer.time) continue;
 
-        // Calculate time diff in minutes
         const diffMs = now.getTime() - prayer.time.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        // If current time is between 15 and 30 minutes AFTER this namaz
         if (diffMins >= 15 && diffMins < 30) {
           
-          // Check if user ALREADY logged this prayer today
+          // Use user's timezone if available, otherwise fallback to UTC
+          let localDateStr = currentDateStr;
+          if (user.timezone) {
+            try {
+               localDateStr = now.toLocaleDateString('en-CA', { timeZone: user.timezone });
+            } catch (e) {
+               console.warn("Invalid timezone", user.timezone);
+            }
+          }
+
           const existingLog = await db.query.prayerLogs.findFirst({
             where: and(
               eq(prayerLogs.userId, user.id),
               eq(prayerLogs.prayerName, prayer.name.toLowerCase()),
-              eq(prayerLogs.date, currentDateStr)
+              eq(prayerLogs.date, localDateStr)
             )
           });
 

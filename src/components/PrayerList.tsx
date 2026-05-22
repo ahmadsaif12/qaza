@@ -8,6 +8,7 @@ import { useAppStore } from "@/store"
 import { toast } from "sonner"
 import { useQuery } from "@tanstack/react-query"
 import { getTodayPrayers } from "@/actions/prayers"
+import { format } from "date-fns"
 
 const requiredPrayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
 
@@ -17,7 +18,7 @@ interface PrayerListProps {
 }
 
 export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) {
-  const dateStr = selectedDate.toISOString().split('T')[0]
+  const dateStr = format(selectedDate, "yyyy-MM-dd")
   const { data: timings, isLoading: isTimingsLoading } = usePrayerTimes(dateStr)
   
   const addMutation = useAppStore(state => state.addMutation)
@@ -65,7 +66,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     </div>
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = format(new Date(), "yyyy-MM-dd")
   const isFuture = dateStr > todayStr;
 
   const handleToggle = (prayer: string) => {
@@ -82,7 +83,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     
     addMutation({
       type: "LOG_PRAYER",
-      payload: { prayerName: prayer, date: selectedDate.toISOString(), status: isCompleted ? "completed" : "missed" }
+      payload: { prayerName: prayer, date: dateStr, status: isCompleted ? "completed" : "missed" }
     })
   }
 

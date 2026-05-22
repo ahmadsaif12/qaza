@@ -167,20 +167,24 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
   }
 }
 
-export async function getWeeklyConsistency() {
+export async function getWeeklyConsistency(clientDateStr?: string) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
   const userId = session.user.id;
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  const todayStr = clientDateStr || new Date().toISOString().split('T')[0];
+  const todayDate = new Date(todayStr); // Parses strictly as midnight UTC
+  
+  const sevenDaysAgo = new Date(todayDate);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
   const dateStr = sevenDaysAgo.toISOString().split('T')[0];
 
   try {
     const logs = await db.query.prayerLogs.findMany({
       where: and(
         eq(prayerLogs.userId, userId),
-        eq(prayerLogs.status, "completed"),
+        inArray(prayerLogs.status, ["completed", "qaza_completed"]),
         gte(prayerLogs.date, dateStr)
       )
     });
@@ -197,10 +201,12 @@ export async function getWeeklyConsistency() {
 
     logs.forEach(log => {
       const d = new Date(log.date);
-      consistency[d.getDay()].prayers += 1;
+      // Use getUTCDay() because '2026-05-22' is parsed as midnight UTC.
+      // Server's local timezone (e.g. EDT) caused getDay() to shift backwards by 1 day!
+      consistency[d.getUTCDay()].prayers += 1;
     });
 
-    const todayDay = new Date().getDay();
+    const todayDay = todayDate.getUTCDay();
     const sortedConsistency = [
       ...consistency.slice(todayDay + 1),
       ...consistency.slice(0, todayDay + 1)
@@ -223,14 +229,15 @@ export async function syncPrayerMutations(mutations: any[]) {
     const latestMutations = new Map();
     for (const mut of mutations) {
       if (mut.type === "LOG_PRAYER") {
-        const key = `${mut.payload.prayerName}-${new Date(mut.payload.date).toISOString().split('T')[0]}`;
+        const dStr = String(mut.payload.date).split('T')[0];
+        const key = `${mut.payload.prayerName}-${dStr}`;
         latestMutations.set(key, mut.payload);
       }
     }
 
     for (const [_, payload] of latestMutations) {
       const { prayerName, date, status } = payload;
-      const targetDate = new Date(date).toISOString().split('T')[0];
+      const targetDate = String(date).split('T')[0];
       
       const existing = await db.query.prayerLogs.findFirst({
         where: and(

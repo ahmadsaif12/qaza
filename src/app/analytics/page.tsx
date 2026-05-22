@@ -6,9 +6,15 @@ import { useQuery } from "@tanstack/react-query"
 import { getWeeklyConsistency } from "@/actions/prayers"
 
 export default function AnalyticsPage() {
+  // Compute local date string reliably 
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  const localDate = new Date(today.getTime() - offset);
+  const todayStr = localDate.toISOString().split('T')[0];
+
   const { data: consistencyRes, isLoading } = useQuery({
-    queryKey: ['weeklyConsistency'],
-    queryFn: async () => await getWeeklyConsistency(),
+    queryKey: ['weeklyConsistency', todayStr],
+    queryFn: async () => await getWeeklyConsistency(todayStr),
   })
 
   const data = consistencyRes?.success && consistencyRes.data ? consistencyRes.data : [
