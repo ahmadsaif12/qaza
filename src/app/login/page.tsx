@@ -25,6 +25,11 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
               Invalid email or password.
             </div>
           )}
+          {searchParams?.error === "OAuthAccountNotLinked" && (
+            <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-xl text-sm text-center">
+              To confirm your identity, sign in with the same account you used originally.
+            </div>
+          )}
           <form
             action={async (formData) => {
               "use server"
