@@ -1,0 +1,17 @@
+{
+  "name": "Qaza Tracker",
+  "short_name": "QazaTrack",
+  "description": "Your gentle prayer buddy. Track and complete your daily and missed prayers.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#073b2c",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
