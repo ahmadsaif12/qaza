@@ -51,7 +51,8 @@ export function useSyncMutations() {
           isSyncing.current = false;
           
           // If new mutations came in while syncing, trigger again
-          if (useAppStore.getState().offlineMutations.length > 0) {
+          const currentMutations = useAppStore.getState().offlineMutations;
+          if (currentMutations.length > snapshot.length) {
             handleOnline();
           }
         }
