@@ -42,13 +42,17 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   if (consistencyRes?.success && consistencyRes.data) {
     const data = consistencyRes.data;
     totalWeekly = data.reduce((acc: number, curr: any) => acc + curr.prayers, 0);
-    // data[6] is today, data[5] is yesterday
-    for (let i = 5; i >= 0; i--) {
-      if (data[i].prayers >= 5) streak++;
-      else break;
-    }
-    if (data[6] && data[6].prayers >= 5) {
-      streak++;
+    const todayIdx = data.length - 1;
+    if (todayIdx >= 0) {
+      // Count backwards from yesterday
+      for (let i = todayIdx - 1; i >= 0; i--) {
+        if (data[i].prayers >= 5) streak++;
+        else break;
+      }
+      // Add today if completed
+      if (data[todayIdx] && data[todayIdx].prayers >= 5) {
+        streak++;
+      }
     }
   }
   

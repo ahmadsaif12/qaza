@@ -71,16 +71,18 @@ export default function AnalyticsPage() {
           <CardContent>
             <p className="text-sm text-foreground/80">
               {(() => {
-                // data[6] is today, data[5] is yesterday
+                const todayIdx = data.length - 1;
                 let streak = 0;
-                // Count backwards from yesterday
-                for (let i = 5; i >= 0; i--) {
-                  if (data[i].prayers >= 5) streak++;
-                  else break;
-                }
-                // Add today if completed
-                if (data[6] && data[6].prayers >= 5) {
-                  streak++;
+                if (todayIdx >= 0) {
+                  // Count backwards from yesterday
+                  for (let i = todayIdx - 1; i >= 0; i--) {
+                    if (data[i].prayers >= 5) streak++;
+                    else break;
+                  }
+                  // Add today if completed
+                  if (data[todayIdx] && data[todayIdx].prayers >= 5) {
+                    streak++;
+                  }
                 }
 
                 if (streak === 0) {
