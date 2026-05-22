@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PrayerList } from "@/components/PrayerList"
 import { DateStrip } from "@/components/DateStrip"
 import { DailyProgress } from "@/components/DailyProgress"
@@ -11,8 +11,13 @@ import { getWeeklyConsistency } from "@/actions/prayers"
 export function HomeClient() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [progress, setProgress] = useState({ completed: 0, total: 5 })
+  const [isMounted, setIsMounted] = useState(false)
 
-  const isToday = isSameDay(selectedDate, new Date())
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  const isToday = isMounted ? isSameDay(selectedDate, new Date()) : true
   
   const { data: consistencyRes } = useQuery({
     queryKey: ['weeklyConsistency'],

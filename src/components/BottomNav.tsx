@@ -22,7 +22,7 @@ export function BottomNav() {
         {navItems.map((item) => {
           const isActive = pathname === item.href
           return (
-            <Link key={item.name} href={item.href} className="relative flex flex-col items-center p-2 w-16">
+            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-2 w-16">
               <item.icon className={`mb-1 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} size={24} />
               <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {item.name}
