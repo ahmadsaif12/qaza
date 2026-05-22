@@ -37,8 +37,7 @@ export async function GET(req: Request) {
     let sentCount = 0;
 
     const notifications = subs.map(async (sub) => {
-      // @ts-ignore
-      const user = sub.user;
+      const user = (sub as any).user;
       if (!user) return;
 
       // Determine the user's local date
