@@ -54,7 +54,29 @@ export default function AnalyticsPage() {
             <CardTitle className="text-lg text-primary">Streaks & Motivation</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-foreground/80">You've hit all 5 prayers for 3 days in a row this week. Keep up the great momentum! May Allah reward your efforts.</p>
+            <p className="text-sm text-foreground/80">
+              {(() => {
+                // data[6] is today, data[5] is yesterday
+                let streak = 0;
+                // Count backwards from yesterday
+                for (let i = 5; i >= 0; i--) {
+                  if (data[i].prayers >= 5) streak++;
+                  else break;
+                }
+                // Add today if completed
+                if (data[6] && data[6].prayers >= 5) {
+                  streak++;
+                }
+
+                if (streak === 0) {
+                  return "Try to hit all 5 prayers today to start a new streak! May Allah make it easy for you.";
+                } else if (streak === 1) {
+                  return "You've hit all 5 prayers today! Great start, keep the momentum going tomorrow.";
+                } else {
+                  return `You've hit all 5 prayers for ${streak} days in a row. Keep up the great momentum! May Allah reward your efforts.`;
+                }
+              })()}
+            </p>
           </CardContent>
         </Card>
       </section>
