@@ -1,7 +1,7 @@
 "use server"
 
 import { and, eq, count, gte, inArray } from "drizzle-orm"
-import { qazaItems, prayerLogs } from "@/db/schema"
+import { qazaItems, prayerLogs, users } from "@/db/schema"
 import { db } from "@/db"
 import { auth } from "@/auth"
 
@@ -24,41 +24,105 @@ export async function getTodayPrayers(dateStr?: string) {
   }
 }
 
-export async function getQazaBacklog() {
+export async function getQazaStats() {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
   const userId = session.user.id;
+  
+  // Implicitly run auto-backfill whenever we fetch qaza stats!
+  await autoBackfillMissedPrayers(userId);
+
   try {
     const qazaCounts = await db.select({
       prayerName: prayerLogs.prayerName,
       count: count(),
     }).from(prayerLogs)
-      .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "missed")))
+      .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["missed", "qaza_completed"])))
       .groupBy(prayerLogs.prayerName);
 
     const manualQazaCounts = await db.select({
       prayerName: qazaItems.prayerName,
       count: count(),
     }).from(qazaItems)
-      .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, false)))
+      .where(eq(qazaItems.userId, userId))
+      .groupBy(qazaItems.prayerName);
+
+    // Also find completed ones
+    const completedPrayerLogs = await db.select({
+      prayerName: prayerLogs.prayerName,
+      count: count(),
+    }).from(prayerLogs)
+      .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "qaza_completed")))
+      .groupBy(prayerLogs.prayerName);
+
+    const completedManualQaza = await db.select({
+      prayerName: qazaItems.prayerName,
+      count: count(),
+    }).from(qazaItems)
+      .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, true)))
       .groupBy(qazaItems.prayerName);
 
     const backlog: Record<string, number> = {
       Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0
     };
     
+    let totalMissed = 0;
+    let totalCovered = 0;
+
     qazaCounts.forEach(q => {
       const name = q.prayerName.charAt(0).toUpperCase() + q.prayerName.slice(1);
-      if (name in backlog) backlog[name] += q.count;
+      if (name in backlog) {
+        backlog[name] += q.count;
+        totalMissed += q.count;
+      }
     });
 
     manualQazaCounts.forEach(q => {
       const name = q.prayerName.charAt(0).toUpperCase() + q.prayerName.slice(1);
-      if (name in backlog) backlog[name] += q.count;
+      if (name in backlog) {
+        backlog[name] += q.count;
+        totalMissed += q.count;
+      }
     });
 
-    return { success: true, data: backlog };
+    completedPrayerLogs.forEach(q => {
+      const name = q.prayerName.charAt(0).toUpperCase() + q.prayerName.slice(1);
+      if (name in backlog) {
+        backlog[name] -= q.count;
+        totalCovered += q.count;
+      }
+    });
+
+    completedManualQaza.forEach(q => {
+      const name = q.prayerName.charAt(0).toUpperCase() + q.prayerName.slice(1);
+      if (name in backlog) {
+        backlog[name] -= q.count;
+        totalCovered += q.count;
+      }
+    });
+
+    // Weekly stats
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    const weeklyMissed = await db.select({ count: count() })
+      .from(prayerLogs)
+      .where(and(
+        eq(prayerLogs.userId, userId),
+        inArray(prayerLogs.status, ["missed", "qaza_completed"]),
+        gte(prayerLogs.date, dateStr)
+      ));
+
+    return { 
+      success: true, 
+      data: {
+        backlog,
+        donut: { totalMissed, totalCovered, remaining: totalMissed - totalCovered },
+        weeklyMissed: weeklyMissed[0]?.count || 0
+      } 
+    };
   } catch (error) {
     return { error: "Failed to fetch" };
   }
@@ -197,3 +261,139 @@ export async function syncPrayerMutations(mutations: any[]) {
     return { error: "Failed to sync" };
   }
 }
+
+export async function autoBackfillMissedPrayers(userId: string) {
+  try {
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) return { error: "User not found" };
+
+    const startDate = new Date(user.createdAt);
+    
+    // Safety check: Don't backfill more than 30 days at once to prevent timeouts
+    const maxBackfillDate = new Date();
+    maxBackfillDate.setDate(maxBackfillDate.getDate() - 30);
+    if (startDate < maxBackfillDate) {
+      startDate.setTime(maxBackfillDate.getTime());
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (startDate >= yesterday) return { success: true };
+
+    const startStr = startDate.toISOString().split('T')[0];
+
+    const logs = await db.query.prayerLogs.findMany({
+      where: and(
+        eq(prayerLogs.userId, userId),
+        gte(prayerLogs.date, startStr)
+      )
+    });
+
+    const existingSet = new Set();
+    logs.forEach(l => existingSet.add(`${l.date}-${l.prayerName.toLowerCase()}`));
+
+    const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+    const missing: { userId: string, prayerName: string, date: string, status: string }[] = [];
+
+    let current = new Date(startDate);
+    while (current <= yesterday) {
+      const dStr = current.toISOString().split('T')[0];
+      prayers.forEach(p => {
+        if (!existingSet.has(`${dStr}-${p}`)) {
+          missing.push({
+            userId,
+            prayerName: p,
+            date: dStr,
+            status: "missed"
+          });
+        }
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    if (missing.length > 0) {
+      const chunkSize = 1000;
+      for (let i = 0; i < missing.length; i += chunkSize) {
+        await db.insert(prayerLogs).values(missing.slice(i, i + chunkSize));
+      }
+    }
+
+    return { success: true, count: missing.length };
+  } catch (e) {
+    console.error("Backfill error:", e);
+    return { error: "Failed to backfill" };
+  }
+}
+
+export async function getDetailedQaza(prayerName: string) {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+  const userId = session.user.id;
+
+  try {
+    const logs = await db.query.prayerLogs.findMany({
+      where: and(
+        eq(prayerLogs.userId, userId),
+        eq(prayerLogs.prayerName, prayerName.toLowerCase()),
+        eq(prayerLogs.status, "missed")
+      ),
+      orderBy: (prayerLogs, { desc }) => [desc(prayerLogs.date)]
+    });
+
+    const items = await db.query.qazaItems.findMany({
+      where: and(
+        eq(qazaItems.userId, userId),
+        eq(qazaItems.prayerName, prayerName.toLowerCase()),
+        eq(qazaItems.isCompleted, false)
+      )
+    });
+
+    let bulkCount = 0;
+    const specificDates: { id: string, date: string, type: 'log' | 'item' }[] = [];
+
+    logs.forEach(l => {
+      specificDates.push({ id: l.id, date: l.date, type: 'log' });
+    });
+
+    items.forEach(i => {
+      if (i.dateMissed) {
+        specificDates.push({ id: i.id, date: i.dateMissed, type: 'item' });
+      } else {
+        bulkCount++;
+      }
+    });
+
+    // Sort descending by date
+    specificDates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { success: true, data: { bulkCount, specificDates } };
+  } catch (e) {
+    return { error: "Failed to fetch detailed qaza" };
+  }
+}
+
+export async function completeDetailedQaza(id: string, type: 'log' | 'item') {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Unauthorized" }
+  const userId = session.user.id;
+
+  try {
+    if (type === 'log') {
+      await db.update(prayerLogs)
+        .set({ status: 'qaza_completed', completedAt: new Date() })
+        .where(and(eq(prayerLogs.id, id), eq(prayerLogs.userId, userId)));
+    } else {
+      await db.update(qazaItems)
+        .set({ isCompleted: true, completedAt: new Date() })
+        .where(and(eq(qazaItems.id, id), eq(qazaItems.userId, userId)));
+    }
+    return { success: true };
+  } catch (e) {
+    return { error: "Failed to complete" };
+  }
+}
+

@@ -34,8 +34,12 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
                   password: formData.get("password"),
                   redirectTo: "/" 
                 })
-              } catch (error) {
+              } catch (error: any) {
                 if (error instanceof AuthError) {
+                  const errMessage = error.cause?.err?.message || "";
+                  if (errMessage === "EmailNotVerified") {
+                    return redirect(`/verify?email=${formData.get("email")}`)
+                  }
                   return redirect("/login?error=CredentialsSignin")
                 }
                 throw error
