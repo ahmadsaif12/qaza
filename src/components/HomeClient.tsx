@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { PrayerList } from "@/components/PrayerList"
 import { DateStrip } from "@/components/DateStrip"
 import { DailyProgress } from "@/components/DailyProgress"
@@ -12,6 +12,10 @@ export function HomeClient() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [progress, setProgress] = useState({ completed: 0, total: 5 })
   const [isMounted, setIsMounted] = useState(false)
+
+  const handleProgressChange = useCallback((completed: number, total: number) => {
+    setProgress(prev => (prev.completed === completed && prev.total === total) ? prev : { completed, total })
+  }, [])
 
   useEffect(() => {
     setIsMounted(true)
@@ -56,7 +60,7 @@ export function HomeClient() {
       
       <PrayerList 
         selectedDate={selectedDate} 
-        onProgressChange={(completed, total) => setProgress({ completed, total })} 
+        onProgressChange={handleProgressChange} 
       />
     </div>
   )
