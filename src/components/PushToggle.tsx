@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
+import { BellRing } from "lucide-react"
 import { toast } from "sonner"
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -104,12 +106,34 @@ export function PushToggle() {
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <label className="text-base font-medium">Daily Reminders</label>
-        <p className="text-sm text-muted-foreground">Receive reminders to log your prayers.</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <label className="text-base font-medium">Daily Reminders</label>
+          <p className="text-sm text-muted-foreground">Receive reminders to log your prayers.</p>
+        </div>
+        <Switch checked={isSubscribed} onCheckedChange={handleToggle} />
       </div>
-      <Switch checked={isSubscribed} onCheckedChange={handleToggle} />
+      
+      {isSubscribed && (
+        <div className="pt-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full text-muted-foreground hover:text-foreground"
+            onClick={async () => {
+              const reg = await navigator.serviceWorker.ready;
+              reg.showNotification("Qaza Tracker Test", {
+                body: "If you're seeing this, your notifications are working perfectly! Alhamdulillah.",
+                icon: "/icon-192x192.png"
+              });
+            }}
+          >
+            <BellRing className="w-4 h-4 mr-2" />
+            Test Notification
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
