@@ -37,7 +37,7 @@ export function DailyProgress({ completed, total }: DailyProgressProps) {
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ type: "spring", stiffness: 60, damping: 15 }}
           className="text-primary"
           strokeLinecap="round"
         />

@@ -98,9 +98,20 @@ export function QuickCatchUp() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 left-0 right-0 z-[120] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 bg-card border-t border-border/50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex justify-center"
+              className="fixed bottom-0 left-0 right-0 z-[120] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-3 bg-card border-t border-border/50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex justify-center"
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.5 }}
+              onDragEnd={(e, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 300) {
+                  setIsOpen(false);
+                }
+              }}
             >
               <div className="w-full max-w-md">
+                {/* Drag Handle */}
+                <div className="w-12 h-1.5 bg-muted/60 rounded-full mx-auto mb-4" />
+
                 <div className="flex items-center justify-between mb-6 px-2">
                   <div>
                     <h3 className="font-bold text-lg text-foreground">Quick Catch-up</h3>

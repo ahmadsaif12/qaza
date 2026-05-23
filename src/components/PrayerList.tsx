@@ -191,12 +191,22 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             </div>
             
             <motion.button 
-              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center overflow-hidden transition-colors ${
                 isDone ? 'bg-primary border-primary text-primary-foreground' : 'border-border'
               }`}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.85 }}
             >
-              {isDone && <Check size={16} strokeWidth={3} />}
+              <motion.div
+                initial={false}
+                animate={{ 
+                  scale: isDone ? 1 : 0.2, 
+                  opacity: isDone ? 1 : 0,
+                  rotate: isDone ? 0 : -45
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <Check size={16} strokeWidth={3} />
+              </motion.div>
             </motion.button>
           </motion.div>
         )

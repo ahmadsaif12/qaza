@@ -25,6 +25,7 @@ export const viewport = {
 import { Providers } from "@/components/providers";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "sonner";
+import { PullToRefresh } from "@/components/PullToRefresh";
 
 export default function RootLayout({
   children,
@@ -39,9 +40,9 @@ export default function RootLayout({
     >
       <body className="h-[100dvh] flex flex-col font-sans overflow-hidden overscroll-none bg-background">
         <Providers>
-          <div className="flex-1 overflow-y-auto overscroll-y-contain w-full">
+          <PullToRefresh>
             {children}
-          </div>
+          </PullToRefresh>
           <BottomNav />
           <Toaster 
             position="top-center" 

@@ -15,7 +15,7 @@ interface QazaClientProps {
     backlog: Record<string, number>;
     donut: { totalMissed: number, totalCovered: number, remaining: number };
     weeklyMissed: number;
-    todayCompletedCount?: number;
+    todayCompletedCount: number;
   };
 }
 

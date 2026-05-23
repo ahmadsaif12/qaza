@@ -80,9 +80,22 @@ export function QazaDetailSheet({ prayer, isOpen, onClose }: QazaDetailSheetProp
             initial={{ opacity: 0, y: 100, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-x-4 bottom-24 top-24 z-50 bg-card border border-border/60 rounded-3xl shadow-xl flex flex-col overflow-hidden max-w-md mx-auto"
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.3 }}
+            onDragEnd={(e, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 400) {
+                onClose();
+              }
+            }}
           >
-            <div className="flex items-center justify-between p-6 border-b border-border/50 bg-muted/20">
+            <div className="pt-3 pb-2 flex justify-center bg-muted/20 cursor-grab active:cursor-grabbing">
+              <div className="w-12 h-1.5 bg-muted/60 rounded-full" />
+            </div>
+            
+            <div className="flex items-center justify-between px-6 pb-4 border-b border-border/50 bg-muted/20">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{prayer} Qaza</h2>
                 <p className="text-sm text-muted-foreground mt-1">Detailed view of missed prayers</p>
