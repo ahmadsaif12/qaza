@@ -16,8 +16,8 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
     <div className="flex min-h-full items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md shadow-lg border-primary/10">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-3xl font-bold tracking-tight text-primary">Qaza Tracker</CardTitle>
-          <CardDescription>Your gentle prayer buddy. Sign in to continue.</CardDescription>
+          <CardTitle className="text-3xl font-bold tracking-tight text-primary">Qaza</CardTitle>
+          <CardDescription>Stay on top of your prayers!</CardDescription>
         </CardHeader>
         <CardContent>
           {isError && (
@@ -54,7 +54,7 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
           >
             <div className="space-y-2 text-left">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="test@example.com" required />
+              <Input id="email" name="email" type="email" placeholder="Your email here" required />
             </div>
             <div className="space-y-2 text-left">
               <div className="flex items-center justify-between">
@@ -63,7 +63,7 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" name="password" type="password" placeholder="password" required />
+              <Input id="password" name="password" type="password" placeholder="Your password here" required />
             </div>
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl h-11">
               Sign In

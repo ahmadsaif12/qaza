@@ -35,6 +35,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${outfit.variable} antialiased`}
+      suppressHydrationWarning
     >
       <body className="h-[100dvh] flex flex-col font-sans overflow-hidden overscroll-none bg-background">
         <Providers>

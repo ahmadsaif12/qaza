@@ -11,7 +11,8 @@ export default async function QazaPage() {
   const stats = statsRes.success && statsRes.data ? statsRes.data : {
     backlog: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
     donut: { totalMissed: 0, totalCovered: 0, remaining: 0 },
-    weeklyMissed: 0
+    weeklyMissed: 0,
+    todayCompletedCount: 0
   }
 
   return (

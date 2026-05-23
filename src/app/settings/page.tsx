@@ -6,6 +6,9 @@ import { PushToggle } from "@/components/PushToggle"
 import { ResetDataButton } from "@/components/ResetDataButton"
 import { TimeFormatToggle } from "@/components/TimeFormatToggle"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { TimingSettings } from "@/components/TimingSettings"
+import { PacingSettings } from "@/components/PacingSettings"
+import { CycleSettings } from "@/components/CycleSettings"
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -38,6 +41,21 @@ export default async function SettingsPage() {
             <div>
               <h2 className="text-lg font-semibold mb-4">Time Format</h2>
               <TimeFormatToggle />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Prayer Timings & Jurisprudence</h2>
+              <TimingSettings />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Daily Catch-up Target</h2>
+              <PacingSettings />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Excused Periods (Cycle / Sick / Travel)</h2>
+              <CycleSettings />
             </div>
           </div>
 

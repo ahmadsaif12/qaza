@@ -38,25 +38,51 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   })
 
   let totalWeekly = 0;
+  let totalRequiredWeekly = 0;
   let streak = 0;
+
   if (consistencyRes?.success && consistencyRes.data) {
     const data = consistencyRes.data;
-    totalWeekly = data.reduce((acc: number, curr: any) => acc + curr.prayers, 0);
+    
+    data.forEach((day: any) => {
+      if (!day.isExcused) {
+        totalWeekly += day.prayers;
+        totalRequiredWeekly += day.requiredCount ?? 5;
+      }
+    });
+
     const todayIdx = data.length - 1;
     if (todayIdx >= 0) {
-      // Count backwards from yesterday
-      for (let i = todayIdx - 1; i >= 0; i--) {
-        if (data[i].prayers >= 5) streak++;
-        else break;
+      let tempStreak = 0;
+      let checkIdx = todayIdx;
+      
+      const today = data[todayIdx];
+      const todayReq = today.requiredCount ?? 5;
+      
+      if (!today.isExcused && today.prayers < todayReq) {
+        checkIdx = todayIdx - 1;
       }
-      // Add today if completed
-      if (data[todayIdx] && data[todayIdx].prayers >= 5) {
-        streak++;
+      
+      for (let i = checkIdx; i >= 0; i--) {
+        const day = data[i];
+        const req = day.requiredCount ?? 5;
+        if (day.isExcused) {
+          continue;
+        }
+        if (day.prayers >= req) {
+          tempStreak++;
+        } else {
+          break;
+        }
       }
+      
+      streak = tempStreak;
     }
   }
   
-  const weeklyPercentage = Math.round((totalWeekly / 35) * 100);
+  const weeklyPercentage = totalRequiredWeekly > 0 
+    ? Math.round((totalWeekly / totalRequiredWeekly) * 100) 
+    : 100;
   
   return (
     <div className="w-full max-w-md space-y-4">

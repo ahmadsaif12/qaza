@@ -1,12 +1,19 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { useQuery } from "@tanstack/react-query"
 import { getWeeklyConsistency, getPrayerInsights } from "@/actions/prayers"
-import { Trophy, AlertCircle } from "lucide-react"
+import { Trophy, AlertCircle, Loader2 } from "lucide-react"
+import { ConsistencyHeatmap } from "@/components/ConsistencyHeatmap"
 
 export default function AnalyticsPage() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Compute local date string reliably 
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60000;
@@ -52,15 +59,19 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-lg">This Week's Consistency</CardTitle>
           </CardHeader>
-          <CardContent className="h-[250px] w-full min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-              <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} domain={[0, 5]} />
-                <Tooltip cursor={{ fill: 'var(--primary)', opacity: 0.1 }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Bar dataKey="prayers" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[250px] w-full min-h-[250px] flex items-center justify-center">
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} domain={[0, data.length > 0 ? Math.max(...data.map((d: any) => d.requiredCount ?? 5)) : 5]} />
+                  <Tooltip cursor={{ fill: 'var(--primary)', opacity: 0.1 }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <Bar dataKey="prayers" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            )}
           </CardContent>
         </Card>
 
@@ -73,29 +84,45 @@ export default function AnalyticsPage() {
               {(() => {
                 const todayIdx = data.length - 1;
                 let streak = 0;
+                let reqCount = 5;
                 if (todayIdx >= 0) {
-                  // Count backwards from yesterday
-                  for (let i = todayIdx - 1; i >= 0; i--) {
-                    if (data[i].prayers >= 5) streak++;
-                    else break;
+                  let tempStreak = 0;
+                  let checkIdx = todayIdx;
+                  const today = data[todayIdx] as any;
+                  reqCount = today.requiredCount ?? 5;
+                  
+                  if (!today.isExcused && today.prayers < reqCount) {
+                    checkIdx = todayIdx - 1;
                   }
-                  // Add today if completed
-                  if (data[todayIdx] && data[todayIdx].prayers >= 5) {
-                    streak++;
+                  
+                  for (let i = checkIdx; i >= 0; i--) {
+                    const day = data[i] as any;
+                    const req = day.requiredCount ?? 5;
+                    if (day.isExcused) {
+                      continue;
+                    }
+                    if (day.prayers >= req) {
+                      tempStreak++;
+                    } else {
+                      break;
+                    }
                   }
+                  streak = tempStreak;
                 }
 
                 if (streak === 0) {
-                  return "Try to hit all 5 prayers today to start a new streak! May Allah make it easy for you.";
+                  return `Try to hit all ${reqCount} prayers today to start a new streak! May Allah make it easy for you.`;
                 } else if (streak === 1) {
-                  return "You've hit all 5 prayers today! Great start, keep the momentum going tomorrow.";
+                  return `You've hit all required prayers today! Great start, keep the momentum going tomorrow.`;
                 } else {
-                  return `You've hit all 5 prayers for ${streak} days in a row. Keep up the great momentum! May Allah reward your efforts.`;
+                  return `You've hit all required prayers for ${streak} days in a row. Keep up the great momentum! May Allah reward your efforts.`;
                 }
               })()}
             </p>
           </CardContent>
         </Card>
+
+        <ConsistencyHeatmap />
 
         <div className="grid grid-cols-2 gap-4">
           <Card className="border-border/60 shadow-sm">

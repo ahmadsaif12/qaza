@@ -10,9 +10,9 @@ export interface PrayerTimes {
   Midnight: string;
 }
 
-export async function fetchPrayerTimes(lat: number, lng: number, date: Date = new Date(), method: number = 2) {
+export async function fetchPrayerTimes(lat: number, lng: number, date: Date = new Date(), method: number = 2, school: number = 0) {
   const formattedDate = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
-  const url = `https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${lat}&longitude=${lng}&method=${method}`;
+  const url = `https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${lat}&longitude=${lng}&method=${method}&school=${school}`;
   
   const response = await fetch(url);
   if (!response.ok) {

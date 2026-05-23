@@ -20,9 +20,19 @@ interface AppState {
   addMutation: (mutation: any) => void
   removeMutations: (ids: string[]) => void
   userLocation: { lat: number; lng: number } | null
-  setUserLocation: (location: { lat: number; lng: number }) => void
+  setUserLocation: (location: { lat: number; lng: number } | null) => void
   timeFormat: '12h' | '24h'
   setTimeFormat: (format: '12h' | '24h') => void
+  calcMethod: number
+  setCalcMethod: (method: number) => void
+  asrMethod: number
+  setAsrMethod: (method: number) => void
+  trackWitr: boolean
+  setTrackWitr: (track: boolean) => void
+  excusedRanges: { start: string; end: string }[]
+  setExcusedRanges: (ranges: { start: string; end: string }[]) => void
+  qazaPace: { paceMode: string } | null
+  setQazaPace: (pace: { paceMode: string } | null) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -39,6 +49,16 @@ export const useAppStore = create<AppState>()(
       setUserLocation: (userLocation) => set({ userLocation }),
       timeFormat: '12h',
       setTimeFormat: (timeFormat) => set({ timeFormat }),
+      calcMethod: 2, // Default to ISNA (2)
+      setCalcMethod: (calcMethod) => set({ calcMethod }),
+      asrMethod: 0, // Default to Standard (0)
+      setAsrMethod: (asrMethod) => set({ asrMethod }),
+      trackWitr: false, // Default to false
+      setTrackWitr: (trackWitr) => set({ trackWitr }),
+      excusedRanges: [],
+      setExcusedRanges: (excusedRanges) => set({ excusedRanges }),
+      qazaPace: null,
+      setQazaPace: (qazaPace) => set({ qazaPace }),
     }),
     {
       name: 'qazatrack-storage',

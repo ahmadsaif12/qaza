@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, ListTodo, BarChart2, Settings } from "lucide-react"
 import { motion } from "framer-motion"
+import { QuickCatchUp } from "@/components/QuickCatchUp"
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -18,8 +19,30 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-md border-t border-border/50 flex justify-center z-[100]">
-      <nav className="flex justify-around w-full max-w-md relative">
-        {navItems.map((item) => {
+      <nav className="flex items-center justify-around w-full max-w-md relative px-2">
+        {navItems.slice(0, 2).map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-2 w-16">
+              <item.icon className={`mb-1 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} size={24} />
+              <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                {item.name}
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="bottom-nav-indicator"
+                  className="absolute -top-1 w-8 h-1 bg-primary rounded-full pointer-events-none"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+              )}
+            </Link>
+          )
+        })}
+
+        {/* Central Bulge Button for Quick Catch-Up */}
+        <QuickCatchUp />
+
+        {navItems.slice(2, 4).map((item) => {
           const isActive = pathname === item.href
           return (
             <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-2 w-16">

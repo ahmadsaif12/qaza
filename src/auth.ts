@@ -10,7 +10,9 @@ import bcrypt from "bcryptjs"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
   providers: [
-    Google,
+    Google({
+      allowDangerousEmailAccountLinking: true
+    }),
     // We will use a mock credentials provider to start, until the user provides OAuth keys or we implement full bcrypt hashing
     Credentials({
       credentials: {

@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq, count, gte, inArray } from "drizzle-orm"
+import { and, eq, count, gte, inArray, desc } from "drizzle-orm"
 import { qazaItems, prayerLogs, users } from "@/db/schema"
 import { db } from "@/db"
 import { auth } from "@/auth"
@@ -63,9 +63,18 @@ export async function getQazaStats() {
       .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, true)))
       .groupBy(qazaItems.prayerName);
 
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { trackWitr: true }
+    });
+    const trackWitrEnabled = user?.trackWitr || false;
+
     const backlog: Record<string, number> = {
       Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0
     };
+    if (trackWitrEnabled) {
+      backlog.Witr = 0;
+    }
     
     let totalMissed = 0;
     let totalCovered = 0;
@@ -115,12 +124,38 @@ export async function getQazaStats() {
         gte(prayerLogs.date, dateStr)
       ));
 
+    // Today's completed Qaza count (local timezone safe)
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    const localDate = new Date(today.getTime() - offset);
+    const todayStr = localDate.toISOString().split('T')[0];
+    const startOfToday = new Date(localDate.setHours(0, 0, 0, 0));
+
+    const todayCompletedQaza = await db.select({ count: count() })
+      .from(prayerLogs)
+      .where(and(
+        eq(prayerLogs.userId, userId),
+        eq(prayerLogs.status, "qaza_completed"),
+        eq(prayerLogs.date, todayStr)
+      ));
+
+    const todayCompletedManual = await db.select({ count: count() })
+      .from(qazaItems)
+      .where(and(
+        eq(qazaItems.userId, userId),
+        eq(qazaItems.isCompleted, true),
+        gte(qazaItems.completedAt, startOfToday)
+      ));
+
+    const todayCompletedCount = (todayCompletedQaza[0]?.count || 0) + (todayCompletedManual[0]?.count || 0);
+
     return { 
       success: true, 
       data: {
         backlog,
         donut: { totalMissed, totalCovered, remaining: totalMissed - totalCovered },
-        weeklyMissed: weeklyMissed[0]?.count || 0
+        weeklyMissed: weeklyMissed[0]?.count || 0,
+        todayCompletedCount
       } 
     };
   } catch (error) {
@@ -134,10 +169,13 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
   const userId = session.user.id;
 
   try {
+    const pNameLower = prayerName.toLowerCase();
+    const pNameTitle = pNameLower.charAt(0).toUpperCase() + pNameLower.slice(1);
+
     if (amount > 0) {
       const values = Array(amount).fill(0).map(() => ({
         userId,
-        prayerName,
+        prayerName: pNameTitle, // Standardize on title case for new historic backlog items
         isCompleted: false,
       }));
       const chunkSize = 1000;
@@ -145,20 +183,44 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
         await db.insert(qazaItems).values(values.slice(i, i + chunkSize));
       }
     } else if (amount < 0) {
-      const limit = Math.abs(amount);
-      const toComplete = await db.query.qazaItems.findMany({
+      let remainingToComplete = Math.abs(amount);
+
+      // First try to tick off specific missed prayers (most recent first)
+      const oldestMissedLogs = await db.query.prayerLogs.findMany({
         where: and(
-          eq(qazaItems.userId, userId), 
-          eq(qazaItems.prayerName, prayerName), 
-          eq(qazaItems.isCompleted, false)
+          eq(prayerLogs.userId, userId),
+          inArray(prayerLogs.prayerName, [pNameLower, pNameTitle]),
+          eq(prayerLogs.status, "missed")
         ),
-        limit
+        orderBy: (logs, { desc }) => [desc(logs.date)],
+        limit: remainingToComplete
       });
-      if (toComplete.length > 0) {
-        const ids = toComplete.map(t => t.id);
-        await db.update(qazaItems)
-          .set({ isCompleted: true, completedAt: new Date() })
-          .where(inArray(qazaItems.id, ids));
+
+      if (oldestMissedLogs.length > 0) {
+        const ids = oldestMissedLogs.map(l => l.id);
+        await db.update(prayerLogs)
+          .set({ status: "qaza_completed" })
+          .where(inArray(prayerLogs.id, ids));
+          
+        remainingToComplete -= oldestMissedLogs.length;
+      }
+
+      // If still remaining, tick off from historic bulk backlog
+      if (remainingToComplete > 0) {
+        const toComplete = await db.query.qazaItems.findMany({
+          where: and(
+            eq(qazaItems.userId, userId), 
+            inArray(qazaItems.prayerName, [pNameLower, pNameTitle]), 
+            eq(qazaItems.isCompleted, false)
+          ),
+          limit: remainingToComplete
+        });
+        if (toComplete.length > 0) {
+          const ids = toComplete.map(t => t.id);
+          await db.update(qazaItems)
+            .set({ isCompleted: true, completedAt: new Date() })
+            .where(inArray(qazaItems.id, ids));
+        }
       }
     }
     return { success: true }
@@ -167,7 +229,7 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
   }
 }
 
-export async function getWeeklyConsistency(clientDateStr?: string) {
+export async function getWeeklyConsistency(clientDateStr?: string, daysBack: number = 7) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
@@ -176,14 +238,20 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
   const todayStr = clientDateStr || new Date().toISOString().split('T')[0];
   const todayDate = new Date(todayStr); // Parses strictly as midnight UTC
   
-  const sevenDaysAgo = new Date(todayDate);
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
-  const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+  const startDateObj = new Date(todayDate);
+  startDateObj.setUTCDate(startDateObj.getUTCDate() - (daysBack - 1));
+  const dateStr = startDateObj.toISOString().split('T')[0];
 
   try {
     const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
     const joinDate = user ? new Date(user.createdAt) : new Date();
     const joinDateStr = joinDate.toISOString().split('T')[0];
+    const trackWitrEnabled = user?.trackWitr || false;
+    const excusedRanges: { start: string, end: string }[] = user?.excusedRanges ? JSON.parse(user.excusedRanges) : [];
+    
+    const isDateExcused = (dStr: string) => {
+      return excusedRanges.some(r => dStr >= r.start && dStr <= r.end);
+    };
 
     const logs = await db.query.prayerLogs.findMany({
       where: and(
@@ -194,9 +262,9 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
     });
 
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const consistency: { name: string, date: string, prayers: number }[] = [];
+    const consistency: { name: string, date: string, prayers: number, isExcused: boolean, requiredCount: number }[] = [];
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = daysBack - 1; i >= 0; i--) {
       const d = new Date(todayDate);
       d.setUTCDate(d.getUTCDate() - i);
       const dStr = d.toISOString().split('T')[0];
@@ -206,7 +274,9 @@ export async function getWeeklyConsistency(clientDateStr?: string) {
         consistency.push({
           name: dayNames[d.getUTCDay()],
           date: dStr,
-          prayers: 0
+          prayers: 0,
+          isExcused: isDateExcused(dStr),
+          requiredCount: trackWitrEnabled ? 6 : 5
         });
       }
     }
@@ -313,6 +383,15 @@ export async function autoBackfillMissedPrayers(userId: string) {
     logs.forEach(l => existingSet.add(`${l.date}-${l.prayerName.toLowerCase()}`));
 
     const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+    if (user.trackWitr) {
+      prayers.push("witr");
+    }
+
+    const excusedRanges: { start: string, end: string }[] = user.excusedRanges ? JSON.parse(user.excusedRanges) : [];
+    const isDateExcused = (dStr: string) => {
+      return excusedRanges.some(r => dStr >= r.start && dStr <= r.end);
+    };
+
     const missing: { userId: string, prayerName: string, date: string, status: string }[] = [];
 
     let current = new Date(startDate);
@@ -320,11 +399,12 @@ export async function autoBackfillMissedPrayers(userId: string) {
       const dStr = current.toISOString().split('T')[0];
       prayers.forEach(p => {
         if (!existingSet.has(`${dStr}-${p}`)) {
+          const excused = isDateExcused(dStr);
           missing.push({
             userId,
             prayerName: p,
             date: dStr,
-            status: "missed"
+            status: excused ? "excused" : "missed"
           });
         }
       });
@@ -443,13 +523,23 @@ export async function getPrayerInsights() {
       .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, false)))
       .groupBy(qazaItems.prayerName);
 
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { trackWitr: true }
+    });
+    const trackWitrEnabled = user?.trackWitr || false;
+
     const missedMap: Record<string, number> = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+    if (trackWitrEnabled) {
+      missedMap.Witr = 0;
+    }
+
     missedLogs.forEach(c => {
-       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1);
+       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1).toLowerCase();
        if (n in missedMap) missedMap[n] += c.count;
     });
     missedItems.forEach(c => {
-       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1);
+       const n = c.prayerName.charAt(0).toUpperCase() + c.prayerName.slice(1).toLowerCase();
        if (n in missedMap) missedMap[n] += c.count;
     });
 

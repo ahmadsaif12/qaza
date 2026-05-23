@@ -24,6 +24,15 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   const addMutation = useAppStore(state => state.addMutation)
   const offlineMutations = useAppStore(state => state.offlineMutations)
   const timeFormatPref = useAppStore(state => state.timeFormat)
+  const trackWitr = useAppStore(state => state.trackWitr)
+
+  const requiredPrayers = useMemo(() => {
+    const list = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+    if (trackWitr) {
+      list.push("Witr")
+    }
+    return list
+  }, [trackWitr])
 
   const { data: dbPrayersRes, isLoading: isDbLoading } = useQuery({
     queryKey: ['prayers', dateStr],
@@ -53,11 +62,13 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     return state;
   }, [dbPrayersRes, offlineMutations, dateStr]);
 
-  const completedCount = Object.values(completed).filter(Boolean).length;
+  const completedCount = useMemo(() => {
+    return requiredPrayers.filter(p => completed[p]).length;
+  }, [requiredPrayers, completed]);
 
   useEffect(() => {
-    onProgressChange?.(completedCount, 5);
-  }, [completedCount, onProgressChange]);
+    onProgressChange?.(completedCount, requiredPrayers.length);
+  }, [completedCount, requiredPrayers.length, onProgressChange]);
 
   const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
 
@@ -71,7 +82,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
       const now = new Date();
       const nowMins = now.getHours() * 60 + now.getMinutes();
       
-      const pTimes = requiredPrayers.map(p => {
+      const pTimes = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(p => {
         const t = (timings as any)[p] as string;
         if (!t || t === "--:--") return { name: p, mins: 0 };
         const [h, m] = t.split(":");
@@ -131,14 +142,24 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     <div className="w-full space-y-3 pb-24">
       {requiredPrayers.map((prayer) => {
         let time = timings ? (timings as any)[prayer] : "--:--"
+        if (prayer === "Witr") {
+          time = timings ? `${timings.Isha} (After Isha)` : "After Isha"
+        }
         const isDone = completed[prayer]
 
-        if (time !== "--:--" && timeFormatPref === '12h') {
-          const [hourStr, minStr] = time.split(":")
-          let hour = parseInt(hourStr, 10)
-          const ampm = hour >= 12 ? "PM" : "AM"
-          hour = hour % 12 || 12
-          time = `${hour}:${minStr} ${ampm}`
+        if (time !== "--:--" && time !== "After Isha" && timeFormatPref === '12h') {
+          // If includes " (After Isha)", split first
+          const parts = time.split(" ");
+          const tPart = parts[0];
+          const suffix = parts.slice(1).join(" ");
+          
+          if (tPart.includes(":")) {
+            const [hourStr, minStr] = tPart.split(":")
+            let hour = parseInt(hourStr, 10)
+            const ampm = hour >= 12 ? "PM" : "AM"
+            hour = hour % 12 || 12
+            time = `${hour}:${minStr} ${ampm}${suffix ? ' ' + suffix : ''}`
+          }
         }
 
         return (
@@ -183,4 +204,3 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     </div>
   )
 }
-

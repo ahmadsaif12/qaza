@@ -24,6 +24,10 @@ export const users = pgTable("user", {
   timezone: text("timezone"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
+  trackWitr: boolean("trackWitr").default(false).notNull(),
+  asrMethod: integer("asrMethod").default(0).notNull(), // 0 = Standard (Shafi'i/Maliki/Hanbali), 1 = Hanafi
+  qazaPace: text("qazaPace"), // JSON string
+  excusedRanges: text("excusedRanges"), // JSON string
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
 })
 
