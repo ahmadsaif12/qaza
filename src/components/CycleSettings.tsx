@@ -66,7 +66,7 @@ export function CycleSettings() {
     <div className="space-y-6">
       {/* Form */}
       <form onSubmit={handleAddRange} className="space-y-4 p-4 bg-muted/20 border border-border/50 rounded-2xl">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label htmlFor="start-date" className="text-xs">Start Date</Label>
             <Input 

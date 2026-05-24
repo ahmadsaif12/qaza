@@ -81,7 +81,7 @@ export function QazaDetailSheet({ prayer, isOpen, onClose }: QazaDetailSheetProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-x-4 bottom-24 top-24 z-50 bg-card border border-border/60 rounded-3xl shadow-xl flex flex-col overflow-hidden max-w-md mx-auto"
+            className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-md h-fit max-h-[85vh] z-[110] bg-card border border-border/60 rounded-3xl shadow-xl flex flex-col overflow-hidden"
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.3 }}

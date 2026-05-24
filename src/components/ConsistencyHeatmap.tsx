@@ -48,8 +48,8 @@ export function ConsistencyHeatmap() {
       <CardHeader className="pb-3 pt-5 px-5">
         <CardTitle className="text-base font-bold">Consistency (Last 30 Days)</CardTitle>
       </CardHeader>
-      <CardContent className="px-5 pb-5 pt-0">
-        <div className="grid grid-cols-10 gap-2 justify-items-center">
+      <CardContent className="px-3 sm:px-5 pb-5 pt-0">
+        <div className="grid grid-cols-7 gap-2 sm:gap-3 justify-items-center">
           {data.map((day: any) => {
             const dateObj = parseISO(day.date)
             const completed = day.prayers
@@ -76,7 +76,7 @@ export function ConsistencyHeatmap() {
                 title={titleText}
                 whileHover={{ scale: 1.08 }}
                 className={`
-                  w-8 h-8 rounded-lg border flex items-center justify-center text-[10px] font-bold select-none cursor-pointer transition-all active:scale-95
+                  w-10 h-10 sm:w-11 sm:h-11 rounded-lg border flex items-center justify-center text-[11px] sm:text-xs font-bold select-none cursor-pointer transition-all active:scale-95
                   ${bgClass}
                 `}
               >
@@ -91,21 +91,21 @@ export function ConsistencyHeatmap() {
             )
           })}
         </div>
-        <div className="flex justify-between items-center mt-4 text-[10px] text-muted-foreground px-1">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-muted/30 border border-border/30 inline-block" />
+        <div className="flex flex-wrap justify-between items-center mt-6 text-[10px] sm:text-xs text-muted-foreground px-1 gap-y-2">
+          <div className="flex items-center gap-1.5 w-[48%] sm:w-auto">
+            <span className="w-3 h-3 rounded bg-muted/30 border border-border/30 inline-block" />
             <span>Empty</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-primary/20 border border-primary/30 inline-block" />
+          <div className="flex items-center gap-1.5 w-[48%] sm:w-auto">
+            <span className="w-3 h-3 rounded bg-primary/20 border border-primary/30 inline-block" />
             <span>Partial</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-primary border border-primary/20 inline-block" />
+          <div className="flex items-center gap-1.5 w-[48%] sm:w-auto">
+            <span className="w-3 h-3 rounded bg-primary border border-primary/20 inline-block" />
             <span>Completed</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-sky-500/15 border border-sky-500/25 inline-block" />
+          <div className="flex items-center gap-1.5 w-[48%] sm:w-auto">
+            <span className="w-3 h-3 rounded bg-sky-500/15 border border-sky-500/25 inline-block" />
             <span>Excused</span>
           </div>
         </div>

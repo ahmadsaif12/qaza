@@ -61,7 +61,7 @@ export function OnboardingWizard() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-end sm:justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6"
+          className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6"
         >
           <motion.div
             initial={{ y: "100%", opacity: 0 }}

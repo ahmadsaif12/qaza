@@ -139,7 +139,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   }
 
   return (
-    <div className="w-full space-y-3 pb-24">
+    <div className="w-full space-y-3">
       {requiredPrayers.map((prayer) => {
         let time = timings ? (timings as any)[prayer] : "--:--"
         if (prayer === "Witr") {

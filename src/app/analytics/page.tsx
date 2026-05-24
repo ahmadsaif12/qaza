@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <main className="flex min-h-full flex-col items-center p-6 bg-background pb-24">
+    <main className="flex min-h-full flex-col items-center p-6 bg-background">
       <header className="w-full max-w-md py-6 mb-4 border-b border-border/50 text-center">
         <h1 className="text-2xl font-bold text-foreground">Your Review</h1>
         <p className="text-muted-foreground text-sm mt-1">Alhamdulillah, look at your progress.</p>

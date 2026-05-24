@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { motion, useAnimation } from "framer-motion"
 import { useQueryClient } from "@tanstack/react-query"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface PullToRefreshProps {
   children: React.ReactNode
@@ -70,7 +71,11 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
         
         // Trigger the refresh!
         try {
-          await queryClient.invalidateQueries()
+          if (!navigator.onLine) {
+            toast.info("You are offline. Showing cached data.")
+          } else {
+            await queryClient.invalidateQueries()
+          }
           // Optionally add a minimum delay so the loading state feels satisfying
           await new Promise(resolve => setTimeout(resolve, 600))
         } finally {
@@ -126,7 +131,7 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
       {/* Foreground content that moves down */}
       <motion.div 
         animate={controls}
-        className="flex-1 w-full flex flex-col bg-background relative z-0"
+        className="flex-1 w-full flex flex-col bg-background relative z-0 pb-[calc(6rem+env(safe-area-inset-bottom))]"
         style={{ touchAction: isPulling ? "none" : "auto" }}
       >
         {children}
