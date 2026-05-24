@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/qaza-tracker-logo.png" alt="Qaza Tracker Logo" width="150" height="150" style="border-radius: 20px" onerror="this.src='https://via.placeholder.com/150?text=Qaza+Tracker'"/>
+  <img src="public/icon.png" alt="Qaza Tracker Logo" width="150" height="150" style="border-radius: 20px" onerror="this.src='https://via.placeholder.com/150?text=Qaza+Tracker'"/>
   
-  # 🕌 Qaza Tracker
+  # Qaza
   
   **Empowering the Muslim Ummah to fulfill their obligations and stay on top of their Namaz.**
   
@@ -63,7 +63,7 @@ This project is built with [Next.js](https://nextjs.org).
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YOUR-USERNAME/QazaTrack.git
+   git clone https://github.com/moidrk/qaza.git
    cd QazaTrack
    ```
 
