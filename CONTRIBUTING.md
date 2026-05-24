@@ -13,8 +13,8 @@ By contributing to this repository, you agree that your contributions will be li
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/QazaTrack.git
-   cd QazaTrack
+   git clone https://github.com/moidrk/qaza.git
+   cd qaza
    ```
 3. **Install dependencies**:
    ```bash
