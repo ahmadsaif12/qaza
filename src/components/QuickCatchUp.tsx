@@ -5,8 +5,9 @@ import { getQazaStats, updateBulkQaza } from "@/actions/prayers"
 import { useAppStore } from "@/store"
 import { Plus, Check, Loader2, ChevronUp, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
+import { useMounted } from "@/hooks/useMounted"
 
 export function QuickCatchUp() {
   const queryClient = useQueryClient()
@@ -14,11 +15,7 @@ export function QuickCatchUp() {
   const [loggingPrayer, setLoggingPrayer] = useState<string | null>(null)
   
   const [isOpen, setIsOpen] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  const isMounted = useMounted()
 
   const { data: statsRes } = useQuery({
     queryKey: ['qazaStats'],
@@ -58,8 +55,8 @@ export function QuickCatchUp() {
 
   if (!isMounted) return <div className="w-14 h-14" />
 
-  const backlog = statsRes?.data?.backlog || {}
-  const totalRemaining = Object.values(backlog).reduce((acc: number, val: any) => acc + val, 0) as number
+  const backlog: Record<string, number> = statsRes?.data?.backlog || {}
+  const totalRemaining = Object.values(backlog).reduce((acc, val) => acc + val, 0)
 
   return (
     <>

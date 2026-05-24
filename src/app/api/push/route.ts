@@ -1,29 +1,42 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/db';
-import { pushSubscriptions } from '@/db/schema';
-import { auth } from '@/auth';
+import { NextResponse } from "next/server"
+import { auth } from "@/auth"
+import { db } from "@/db"
+import { pushSubscriptions } from "@/db/schema"
+import { getZodError, pushSubscribeBodySchema } from "@/lib/validation"
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const session = await auth()
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const subscription = await req.json();
-    const userId = session.user.id;
+    const parsed = pushSubscribeBodySchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return NextResponse.json({ error: getZodError(parsed.error) }, { status: 400 })
+    }
 
-    // In a real app we'd upsert based on the endpoint to avoid duplicate entries
-    await db.insert(pushSubscriptions).values({
-      userId,
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys.p256dh,
-      auth: subscription.keys.auth,
-    });
+    const { subscription } = parsed.data
 
-    return NextResponse.json({ success: true });
+    await db
+      .insert(pushSubscriptions)
+      .values({
+        userId: session.user.id,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      })
+      .onConflictDoUpdate({
+        target: [pushSubscriptions.userId, pushSubscriptions.endpoint],
+        set: {
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth,
+        },
+      })
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error saving subscription', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error saving subscription", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

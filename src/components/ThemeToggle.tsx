@@ -1,8 +1,8 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
 import { Monitor, Moon, Sun, Check } from "lucide-react"
+import { useMounted } from "@/hooks/useMounted"
 
 const THEMES = [
   { id: "system", name: "Auto", icon: <Monitor className="w-4 h-4" />, colorClass: "" },
@@ -15,12 +15,7 @@ const THEMES = [
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  // Avoid hydration mismatch
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
 
   if (!mounted) {
     return <div className="h-24 w-full bg-muted rounded-xl animate-pulse" />

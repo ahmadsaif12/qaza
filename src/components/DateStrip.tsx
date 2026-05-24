@@ -1,8 +1,7 @@
 "use client"
 
-import { format, subDays, addDays, isSameDay } from "date-fns"
+import { format, subDays, isSameDay } from "date-fns"
 import { useRef, useEffect } from "react"
-import { motion } from "framer-motion"
 
 interface DateStripProps {
   selectedDate: Date;

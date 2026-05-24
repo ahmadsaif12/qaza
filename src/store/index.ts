@@ -15,9 +15,25 @@ const storage = {
   },
 }
 
+type PrayerStatus = "completed" | "missed" | "qaza_completed" | "excused"
+
+export type OfflinePrayerMutation = {
+  id: string
+  type: "LOG_PRAYER"
+  payload: {
+    prayerName: string
+    date: string
+    status: PrayerStatus
+  }
+}
+
+type NewOfflinePrayerMutation = Omit<OfflinePrayerMutation, "id"> & {
+  id?: string
+}
+
 interface AppState {
-  offlineMutations: any[]
-  addMutation: (mutation: any) => void
+  offlineMutations: OfflinePrayerMutation[]
+  addMutation: (mutation: NewOfflinePrayerMutation) => void
   removeMutations: (ids: string[]) => void
   userLocation: { lat: number; lng: number } | null
   setUserLocation: (location: { lat: number; lng: number } | null) => void

@@ -10,7 +10,10 @@ import { useQuery } from "@tanstack/react-query"
 import { getTodayPrayers } from "@/actions/prayers"
 import { format } from "date-fns"
 
-const requiredPrayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+type PrayerLog = {
+  prayerName: string
+  status: string
+}
 
 interface PrayerListProps {
   selectedDate: Date;
@@ -45,7 +48,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     
     // 1. Start with database state
     if (dbPrayersRes?.success && dbPrayersRes.data) {
-      dbPrayersRes.data.forEach((log: any) => {
+      dbPrayersRes.data.forEach((log: PrayerLog) => {
         const pNameLower = log.prayerName.charAt(0).toUpperCase() + log.prayerName.slice(1).toLowerCase();
         state[pNameLower] = log.status === "completed" || log.status === "qaza_completed";
         state[log.prayerName] = log.status === "completed" || log.status === "qaza_completed";
@@ -70,44 +73,35 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     onProgressChange?.(completedCount, requiredPrayers.length);
   }, [completedCount, requiredPrayers.length, onProgressChange]);
 
-  const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
+    const interval = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPrayer = useMemo(() => {
     if (!timings || dateStr !== format(new Date(), "yyyy-MM-dd")) {
-      setCurrentPrayer(null);
-      return;
+      return null
     }
 
-    const calculateCurrent = () => {
-      const now = new Date();
-      const nowMins = now.getHours() * 60 + now.getMinutes();
-      
-      const pTimes = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(p => {
-        const t = (timings as any)[p] as string;
-        if (!t || t === "--:--") return { name: p, mins: 0 };
-        const [h, m] = t.split(":");
-        return { name: p, mins: parseInt(h, 10) * 60 + parseInt(m, 10) };
-      });
+    const now = new Date(nowTick);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const pTimes = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((p) => {
+      const t = timings[p as keyof typeof timings];
+      if (!t || t === "--:--") return { name: p, mins: 0 };
+      const [h, m] = t.split(":");
+      return { name: p, mins: parseInt(h, 10) * 60 + parseInt(m, 10) };
+    });
 
-      let current = null;
-      for (let i = pTimes.length - 1; i >= 0; i--) {
-        if (nowMins >= pTimes[i].mins) {
-          current = pTimes[i].name;
-          break;
-        }
+    for (let i = pTimes.length - 1; i >= 0; i--) {
+      if (nowMins >= pTimes[i].mins) {
+        return pTimes[i].name;
       }
-      
-      if (!current && nowMins < pTimes[0].mins) {
-        current = "Isha";
-      }
+    }
 
-      setCurrentPrayer(current);
-    };
-
-    calculateCurrent();
-    const interval = setInterval(calculateCurrent, 60000);
-    return () => clearInterval(interval);
-  }, [timings, dateStr]);
+    return nowMins < pTimes[0].mins ? "Isha" : null;
+  }, [timings, dateStr, nowTick]);
 
   if (isTimingsLoading || isDbLoading) {
     return <div className="animate-pulse space-y-3">
@@ -141,7 +135,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   return (
     <div className="w-full space-y-3">
       {requiredPrayers.map((prayer) => {
-        let time = timings ? (timings as any)[prayer] : "--:--"
+        let time = timings ? timings[prayer as keyof typeof timings] : "--:--"
         if (prayer === "Witr") {
           time = timings ? `${timings.Isha} (After Isha)` : "After Isha"
         }

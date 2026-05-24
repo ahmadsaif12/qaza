@@ -11,6 +11,30 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+type PushPayload = {
+  title?: string;
+  body?: string;
+  payload?: {
+    url?: string;
+    type?: string;
+    prayerName?: string;
+    date?: string;
+    tokens?: {
+      completed?: string;
+      missed?: string;
+    };
+  };
+};
+
+type NotificationActionOption = {
+  action: string;
+  title: string;
+};
+
+type ActionableNotificationOptions = NotificationOptions & {
+  actions?: NotificationActionOption[];
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
@@ -22,19 +46,24 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {};
+  const data = (event.data?.json() ?? {}) as PushPayload;
   const title = data.title || "Prayer Reminder";
+  const payload = data.payload ?? {};
+  const options: ActionableNotificationOptions = {
+    body: data.body,
+    icon: "/icon-192x192.png",
+    data: payload,
+  };
+
+  if (payload.type === "prayer_checkin" && payload.prayerName && payload.date) {
+    options.actions = [
+      { action: "completed", title: "Yes, I prayed" },
+      { action: "missed", title: "No, log to Qaza" }
+    ];
+  }
   
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body,
-      icon: "/icon-192x192.png",
-      data: data.payload,
-      actions: [
-        { action: "completed", title: "Yes, I prayed" },
-        { action: "missed", title: "No, log to Qaza" }
-      ]
-    } as any)
+    self.registration.showNotification(title, options)
   );
 });
 
@@ -42,19 +71,23 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   if (event.action === "completed" || event.action === "missed") {
-    const payload = event.notification.data;
+    const payload = event.notification.data as PushPayload["payload"];
     const endpoint = event.action === "completed" 
       ? '/api/notifications/prayer-checkin/prayed'
       : '/api/notifications/prayer-checkin/qaza';
+    const actionToken = event.action === "completed"
+      ? payload?.tokens?.completed
+      : payload?.tokens?.missed;
       
     event.waitUntil(
       fetch(endpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prayerName: payload.prayerName,
-          date: payload.date,
-          userId: payload.userId // Optional: sent from cron if you include it in payload
+          prayerName: payload?.prayerName,
+          date: payload?.date,
+          actionToken,
         })
       })
     );

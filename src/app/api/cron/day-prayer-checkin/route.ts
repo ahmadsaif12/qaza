@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, pushSubscriptions, notificationLogs, prayerLogs } from '@/db/schema';
-import { eq, and, desc, inArray } from 'drizzle-orm';
-import { getUserLocalDate, getUserLocalHour } from '@/lib/date-utils';
+import { eq, and } from 'drizzle-orm';
+import { getUserLocalDate } from '@/lib/date-utils';
 import { sendPushNotification } from '@/lib/web-push';
-import { getWeeklyConsistency } from '@/actions/prayers';
+import { requireCronAuth } from '@/lib/cron-auth';
+import { createNotificationActionToken } from '@/lib/notification-tokens';
+import type { PrayerName } from '@/lib/validation';
 
 export const maxDuration = 300; // allow 5 mins on Vercel Pro if available, though Hobby is 10s usually
 
 export async function GET(request: Request) {
-  // Optional cron secret auth
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // We allow it to pass if they don't use CRON_SECRET on hobby for now, or you can strictly enforce it
-  }
+  const authError = requireCronAuth(request);
+  if (authError) return authError;
 
   const allUsers = await db.query.users.findMany({
     where: eq(users.dayCheckinEnabled, true)
@@ -24,7 +23,7 @@ export async function GET(request: Request) {
   let skipped = 0;
   let errors = 0;
 
-  const prayersList = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  const prayersList: PrayerName[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
   for (const user of allUsers) {
     processed++;
@@ -49,7 +48,7 @@ export async function GET(request: Request) {
       });
 
       // Find the first unconfirmed prayer
-      let targetPrayer: string | null = null;
+      let targetPrayer: PrayerName | null = null;
       for (const p of prayersList) {
         const log = todaysLogs.find(l => l.prayerName.toLowerCase() === p);
         if (!log || log.status === 'missed') {
@@ -90,7 +89,21 @@ export async function GET(request: Request) {
           url: `/?checkin=${targetPrayer}&date=${localDate}`,
           prayerName: targetPrayer,
           date: localDate,
-          type: "prayer_checkin"
+          type: "prayer_checkin",
+          tokens: {
+            completed: createNotificationActionToken({
+              userId: user.id,
+              prayerName: targetPrayer,
+              date: localDate,
+              action: "completed",
+            }),
+            missed: createNotificationActionToken({
+              userId: user.id,
+              prayerName: targetPrayer,
+              date: localDate,
+              action: "missed",
+            }),
+          },
         }
       };
 

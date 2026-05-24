@@ -6,7 +6,9 @@ import {
   primaryKey,
   integer,
   date,
-  doublePrecision
+  doublePrecision,
+  index,
+  uniqueIndex
 } from "drizzle-orm/pg-core"
 import type { AdapterAccount } from "next-auth/adapters"
 
@@ -71,47 +73,91 @@ export const verificationTokens = pgTable(
     identifier: text("identifier").notNull(),
     token: text("token").notNull(),
     expires: timestamp("expires", { mode: "date" }).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
   },
   (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+)
+
+export const rateLimits = pgTable(
+  "rate_limit",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").default(0).notNull(),
+    resetAt: timestamp("resetAt", { mode: "date" }).notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("rate_limit_reset_at_idx").on(table.resetAt),
+  ]
 )
 
 // Qaza Tracker specific tables
 
 export const prayerNames = ["fajr", "dhuhr", "asr", "maghrib", "isha", "witr"] as const;
 
-export const prayerLogs = pgTable("prayer_log", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  date: date("date").notNull(), // YYYY-MM-DD
-  prayerName: text("prayerName").notNull(), // fajr, dhuhr, etc.
-  status: text("status").notNull(), // completed, qaza, excused
-  completedAt: timestamp("completedAt", { mode: "date" }),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
-});
+export const prayerLogs = pgTable(
+  "prayer_log",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(), // YYYY-MM-DD
+    prayerName: text("prayerName").notNull(), // fajr, dhuhr, etc.
+    status: text("status").notNull(), // completed, missed, qaza_completed, excused
+    completedAt: timestamp("completedAt", { mode: "date" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("prayer_log_user_date_prayer_unique").on(table.userId, table.date, table.prayerName),
+    index("prayer_log_user_date_idx").on(table.userId, table.date),
+    index("prayer_log_user_status_idx").on(table.userId, table.status),
+  ]
+);
 
-export const qazaItems = pgTable("qaza_item", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  prayerName: text("prayerName").notNull(),
-  dateMissed: date("dateMissed"), // null if it's from the bulk onboarding estimate
-  isCompleted: boolean("isCompleted").default(false).notNull(),
-  completedAt: timestamp("completedAt", { mode: "date" }),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
-});
+export const qazaItems = pgTable(
+  "qaza_item",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    prayerName: text("prayerName").notNull(),
+    dateMissed: date("dateMissed"), // null if it's from the bulk onboarding estimate
+    isCompleted: boolean("isCompleted").default(false).notNull(),
+    completedAt: timestamp("completedAt", { mode: "date" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("qaza_item_user_date_prayer_unique").on(table.userId, table.dateMissed, table.prayerName),
+    index("qaza_item_user_completed_idx").on(table.userId, table.isCompleted),
+    index("qaza_item_user_prayer_idx").on(table.userId, table.prayerName),
+  ]
+);
 
-export const pushSubscriptions = pgTable("push_subscription", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  endpoint: text("endpoint").notNull(),
-  p256dh: text("p256dh").notNull(),
-  auth: text("auth").notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
-});
+export const pushSubscriptions = pgTable(
+  "push_subscription",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("push_subscription_user_endpoint_unique").on(table.userId, table.endpoint),
+    index("push_subscription_user_idx").on(table.userId),
+  ]
+);
 
-export const notificationLogs = pgTable("notification_log", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  uniqueKey: text("uniqueKey").notNull().unique(), // e.g. "userId:2026-05-24:day_checkin:fajr"
-  type: text("type").notNull(), // "day_checkin", "night_summary"
-  sentAt: timestamp("sentAt", { mode: "date" }).defaultNow().notNull(),
-});
+export const notificationLogs = pgTable(
+  "notification_log",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    uniqueKey: text("uniqueKey").notNull().unique(), // e.g. "userId:2026-05-24:day_checkin:fajr"
+    type: text("type").notNull(), // "day_checkin", "night_summary"
+    sentAt: timestamp("sentAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("notification_log_user_type_idx").on(table.userId, table.type),
+  ]
+);

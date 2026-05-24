@@ -39,7 +39,7 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
                   password: formData.get("password"),
                   redirectTo: "/" 
                 })
-              } catch (error: any) {
+              } catch (error) {
                 if (error instanceof AuthError) {
                   const errMessage = error.cause?.err?.message || "";
                   if (errMessage === "EmailNotVerified") {
@@ -94,7 +94,7 @@ export default function LoginPage(props: { searchParams?: Promise<{ error?: stri
           </form>
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/register" className="text-primary hover:underline font-medium">
               Sign up
             </Link>

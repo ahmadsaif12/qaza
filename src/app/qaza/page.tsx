@@ -19,7 +19,7 @@ export default async function QazaPage() {
     <main className="flex min-h-full flex-col items-center p-6 bg-background">
       <header className="w-full max-w-md py-6 mb-4 border-b border-border/50 text-center">
         <h1 className="text-2xl font-bold text-foreground">Qaza</h1>
-        <p className="text-muted-foreground text-sm mt-1">Don't rush. Let's catch up one prayer at a time.</p>
+        <p className="text-muted-foreground text-sm mt-1">Don&apos;t rush. Let&apos;s catch up one prayer at a time.</p>
       </header>
 
       <section className="w-full max-w-md space-y-4">

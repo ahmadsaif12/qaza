@@ -77,7 +77,7 @@ export default function VerifyPage(props: { searchParams?: Promise<{ email?: str
           </form>
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Didn't receive the code?{" "}
+            Didn&apos;t receive the code?{" "}
             <button 
               type="button"
               onClick={handleResend}

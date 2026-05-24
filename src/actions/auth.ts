@@ -1,98 +1,171 @@
 "use server"
 
+import bcrypt from "bcryptjs"
+import nodemailer from "nodemailer"
+import { headers } from "next/headers"
+import { and, eq } from "drizzle-orm"
+import { signIn } from "@/auth"
 import { db } from "@/db"
 import { users, verificationTokens } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
-import bcrypt from "bcryptjs"
-import { z } from "zod"
-import nodemailer from "nodemailer"
-import { signIn } from "@/auth"
+import {
+  emailOnlySchema,
+  getZodError,
+  otpVerificationSchema,
+  passwordResetSchema,
+  registerSchema,
+} from "@/lib/validation"
+import { checkRateLimit, createOtp, hashOtp, verifyOtpHash } from "@/lib/otp"
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-})
+const OTP_EXPIRY_MS = 15 * 60 * 1000
+const MAX_OTP_ATTEMPTS = 5
+
+async function getClientIp() {
+  const headerStore = await headers()
+  return (
+    headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headerStore.get("x-real-ip") ||
+    "unknown"
+  )
+}
+
+async function enforceRateLimit(scope: string, email: string, maxAttempts: number, windowMs: number) {
+  const ip = await getClientIp()
+  const emailError = await checkRateLimit(`${scope}:email:${email}`, maxAttempts, windowMs)
+  if (emailError) return emailError
+
+  return checkRateLimit(`${scope}:ip:${ip}`, maxAttempts, windowMs)
+}
+
+async function sendOtpEmail(input: {
+  email: string
+  otp: string
+  subject: string
+  textLabel: string
+}) {
+  if (!process.env.SMTP_HOST) {
+    console.warn("SMTP settings are not configured. OTP email was not sent.")
+    return
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  })
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: input.email,
+    subject: input.subject,
+    text: `${input.textLabel}: ${input.otp}`,
+    html: `<p>${input.textLabel}: <strong>${input.otp}</strong></p>`,
+  })
+}
+
+async function createAndStoreOtp(email: string) {
+  const otp = createOtp()
+  const expires = new Date(Date.now() + OTP_EXPIRY_MS)
+
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+  await db.insert(verificationTokens).values({
+    identifier: email,
+    token: hashOtp(email, otp),
+    expires,
+    attempts: 0,
+  })
+
+  return otp
+}
+
+async function validateStoredOtp(email: string, otp: string) {
+  const tokenRecord = await db.query.verificationTokens.findFirst({
+    where: eq(verificationTokens.identifier, email),
+  })
+
+  if (!tokenRecord) {
+    return { error: "Invalid OTP code" }
+  }
+
+  if (new Date() > new Date(tokenRecord.expires)) {
+    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+    return { error: "OTP expired" }
+  }
+
+  if (tokenRecord.attempts >= MAX_OTP_ATTEMPTS) {
+    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+    return { error: "Too many invalid attempts. Please request a new code." }
+  }
+
+  if (!verifyOtpHash(email, otp, tokenRecord.token)) {
+    const nextAttempts = tokenRecord.attempts + 1
+    if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+      await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
+      return { error: "Too many invalid attempts. Please request a new code." }
+    }
+
+    await db
+      .update(verificationTokens)
+      .set({ attempts: nextAttempts })
+      .where(and(eq(verificationTokens.identifier, email), eq(verificationTokens.token, tokenRecord.token)))
+
+    return { error: "Invalid OTP code" }
+  }
+
+  return { success: true }
+}
 
 export async function registerUser(formData: FormData) {
   try {
-    const rawData = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      password: formData.get("password") as string,
-    }
-
-    const parsed = registerSchema.safeParse(rawData)
+    const parsed = registerSchema.safeParse({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+    })
 
     if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message || "Invalid input" }
+      return { error: getZodError(parsed.error) }
     }
 
     const { name, email, password } = parsed.data
+    const rateLimitError = await enforceRateLimit("auth:register", email, 5, 15 * 60 * 1000)
+    if (rateLimitError) return { error: rateLimitError }
 
     const existing = await db.query.users.findFirst({
-      where: eq(users.email, email)
+      where: eq(users.email, email),
     })
 
-    if (existing) {
-      if (existing.emailVerified) {
-        return { error: "User already exists. Please log in." }
-      }
-      // If not verified, we'll just update their details and send a new OTP
+    if (existing?.emailVerified) {
+      return { error: "User already exists. Please log in." }
     }
 
-    const salt = await bcrypt.genSalt(10)
-    const hashedPassword = await bcrypt.hash(password, salt)
+    const hashedPassword = await bcrypt.hash(password, 10)
 
     if (existing) {
-      await db.update(users).set({
-        name,
-        password: hashedPassword
-      }).where(eq(users.email, email))
+      await db
+        .update(users)
+        .set({
+          name,
+          password: hashedPassword,
+        })
+        .where(eq(users.email, email))
     } else {
       await db.insert(users).values({
         name,
         email,
-        password: hashedPassword
-        // emailVerified is null by default as per schema (it's not set)
+        password: hashedPassword,
       })
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-
-    // Delete existing token
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
-
-    // Insert new token (expires in 15 mins)
-    const expires = new Date(Date.now() + 15 * 60 * 1000)
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token: otp,
-      expires
+    const otp = await createAndStoreOtp(email)
+    await sendOtpEmail({
+      email,
+      otp,
+      subject: "Verify your email for Qaza",
+      textLabel: "Your verification code is",
     })
-
-    // Send email
-    if (process.env.SMTP_HOST) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      })
-
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: "Verify your email for Qaza",
-        text: `Your verification code is: ${otp}`,
-        html: `<p>Your verification code is: <strong>${otp}</strong></p>`
-      })
-    } else {
-      console.warn("SMTP settings not configured. OTP generated:", otp);
-    }
 
     return { success: true }
   } catch (error) {
@@ -103,34 +176,23 @@ export async function registerUser(formData: FormData) {
 
 export async function verifyOtp(formData: FormData) {
   try {
-    const email = formData.get("email") as string
-    const otp = formData.get("otp") as string
-
-    if (!email || !otp) {
-      return { error: "Missing required fields" }
-    }
-
-    const tokenRecord = await db.query.verificationTokens.findFirst({
-      where: and(
-        eq(verificationTokens.identifier, email),
-        eq(verificationTokens.token, otp)
-      )
+    const parsed = otpVerificationSchema.safeParse({
+      email: formData.get("email"),
+      otp: formData.get("otp"),
     })
 
-    if (!tokenRecord) {
-      return { error: "Invalid OTP code" }
+    if (!parsed.success) {
+      return { error: getZodError(parsed.error) }
     }
 
-    if (new Date() > new Date(tokenRecord.expires)) {
-      return { error: "OTP expired" }
-    }
+    const { email, otp } = parsed.data
+    const rateLimitError = await enforceRateLimit("auth:verify-otp", email, 10, 15 * 60 * 1000)
+    if (rateLimitError) return { error: rateLimitError }
 
-    // Mark email as verified
-    await db.update(users)
-      .set({ emailVerified: new Date() })
-      .where(eq(users.email, email))
+    const otpResult = await validateStoredOtp(email, otp)
+    if (!otpResult.success) return { error: otpResult.error }
 
-    // Delete token
+    await db.update(users).set({ emailVerified: new Date() }).where(eq(users.email, email))
     await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
 
     return { success: true }
@@ -142,56 +204,34 @@ export async function verifyOtp(formData: FormData) {
 
 export async function resendOtp(formData: FormData) {
   try {
-    const email = formData.get("email") as string
-    if (!email) return { error: "Email is required" }
+    const parsed = emailOnlySchema.safeParse({ email: formData.get("email") })
+    if (!parsed.success) {
+      return { error: getZodError(parsed.error) }
+    }
+
+    const { email } = parsed.data
+    const rateLimitError = await enforceRateLimit("auth:resend-otp", email, 3, 10 * 60 * 1000)
+    if (rateLimitError) return { error: rateLimitError }
 
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email)
+      where: eq(users.email, email),
     })
 
     if (!existingUser) {
-      return { error: "User not found" }
+      return { success: true }
     }
 
     if (existingUser.emailVerified) {
       return { error: "Email is already verified" }
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-
-    // Delete existing token
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
-
-    // Insert new token (expires in 15 mins)
-    const expires = new Date(Date.now() + 15 * 60 * 1000)
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token: otp,
-      expires
+    const otp = await createAndStoreOtp(email)
+    await sendOtpEmail({
+      email,
+      otp,
+      subject: "Verify your email for Qaza",
+      textLabel: "Your verification code is",
     })
-
-    // Send email
-    if (process.env.SMTP_HOST) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      })
-
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: "Verify your email for Qaza",
-        text: `Your verification code is: ${otp}`,
-        html: `<p>Your verification code is: <strong>${otp}</strong></p>`
-      })
-    } else {
-       console.warn("SMTP settings not configured. OTP generated:", otp);
-    }
 
     return { success: true }
   } catch (error) {
@@ -204,54 +244,32 @@ export async function googleSignIn() {
   await signIn("google", { redirectTo: "/" })
 }
 
-const passwordResetSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
-})
-
 export async function sendForgotPasswordOtp(formData: FormData) {
   try {
-    const email = formData.get("email") as string
-    if (!email) return { error: "Email is required" }
+    const parsed = emailOnlySchema.safeParse({ email: formData.get("email") })
+    if (!parsed.success) {
+      return { error: getZodError(parsed.error) }
+    }
+
+    const { email } = parsed.data
+    const rateLimitError = await enforceRateLimit("auth:forgot-password", email, 3, 10 * 60 * 1000)
+    if (rateLimitError) return { error: rateLimitError }
 
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email)
+      where: eq(users.email, email),
     })
 
     if (!existingUser) {
       return { success: true }
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
-
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email))
-
-    const expires = new Date(Date.now() + 15 * 60 * 1000)
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token: otp,
-      expires
+    const otp = await createAndStoreOtp(email)
+    await sendOtpEmail({
+      email,
+      otp,
+      subject: "Reset your password for Qaza",
+      textLabel: "Your password reset code is",
     })
-
-    if (process.env.SMTP_HOST) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      })
-
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: email,
-        subject: "Reset your password for Qaza",
-        text: `Your password reset code is: ${otp}`,
-        html: `<p>Your password reset code is: <strong>${otp}</strong></p>`
-      })
-    } else {
-       console.warn("SMTP settings not configured. Forgot password OTP generated:", otp);
-    }
 
     return { success: true }
   } catch (error) {
@@ -262,41 +280,30 @@ export async function sendForgotPasswordOtp(formData: FormData) {
 
 export async function resetPassword(formData: FormData) {
   try {
-    const email = formData.get("email") as string
-    const otp = formData.get("otp") as string
-    const newPassword = formData.get("newPassword") as string
-
-    if (!email || !otp || !newPassword) {
-      return { error: "Missing required fields" }
-    }
-
-    const parsed = passwordResetSchema.safeParse({ password: newPassword })
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message || "Invalid password" }
-    }
-
-    const tokenRecord = await db.query.verificationTokens.findFirst({
-      where: and(
-        eq(verificationTokens.identifier, email),
-        eq(verificationTokens.token, otp)
-      )
+    const parsed = passwordResetSchema.safeParse({
+      email: formData.get("email"),
+      otp: formData.get("otp"),
+      newPassword: formData.get("newPassword"),
     })
 
-    if (!tokenRecord) {
-      return { error: "Invalid OTP code" }
+    if (!parsed.success) {
+      return { error: getZodError(parsed.error) }
     }
 
-    if (new Date() > new Date(tokenRecord.expires)) {
-      return { error: "OTP expired" }
-    }
+    const { email, otp, newPassword } = parsed.data
+    const rateLimitError = await enforceRateLimit("auth:reset-password", email, 10, 15 * 60 * 1000)
+    if (rateLimitError) return { error: rateLimitError }
 
-    const salt = await bcrypt.genSalt(10)
-    const hashedPassword = await bcrypt.hash(newPassword, salt)
+    const otpResult = await validateStoredOtp(email, otp)
+    if (!otpResult.success) return { error: otpResult.error }
 
-    await db.update(users)
-      .set({ 
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+
+    await db
+      .update(users)
+      .set({
         password: hashedPassword,
-        emailVerified: new Date() 
+        emailVerified: new Date(),
       })
       .where(eq(users.email, email))
 

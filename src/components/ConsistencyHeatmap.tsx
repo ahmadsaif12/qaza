@@ -5,21 +5,24 @@ import { getWeeklyConsistency } from "@/actions/prayers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 import { format, parseISO } from "date-fns"
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useMounted } from "@/hooks/useMounted"
+
+type ConsistencyDay = {
+  date: string
+  prayers: number
+  requiredCount?: number
+  isExcused?: boolean
+}
 
 export function ConsistencyHeatmap() {
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
 
   // Compute local date string reliably
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60000;
   const localDate = new Date(today.getTime() - offset);
   const todayStr = localDate.toISOString().split('T')[0];
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const { data: consistencyRes, isLoading } = useQuery({
     queryKey: ['weeklyConsistency', todayStr, 30],
@@ -39,7 +42,7 @@ export function ConsistencyHeatmap() {
     )
   }
 
-  const data = consistencyRes?.success && consistencyRes.data ? consistencyRes.data : []
+  const data: ConsistencyDay[] = consistencyRes?.success && consistencyRes.data ? consistencyRes.data : []
 
   if (data.length === 0) return null
 
@@ -50,7 +53,7 @@ export function ConsistencyHeatmap() {
       </CardHeader>
       <CardContent className="px-3 sm:px-5 pb-5 pt-0">
         <div className="grid grid-cols-7 gap-2 sm:gap-3 justify-items-center">
-          {data.map((day: any) => {
+          {data.map((day) => {
             const dateObj = parseISO(day.date)
             const completed = day.prayers
             const required = day.requiredCount || 5

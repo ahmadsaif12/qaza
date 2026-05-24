@@ -14,7 +14,7 @@ if (vapidPublicKey && vapidPrivateKey) {
 
 export async function sendPushNotification(
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
-  payload: any
+  payload: Record<string, unknown>
 ) {
   if (!vapidPublicKey || !vapidPrivateKey) {
     console.warn("VAPID keys missing, skipping push");
@@ -24,8 +24,8 @@ export async function sendPushNotification(
   try {
     await webpush.sendNotification(subscription, JSON.stringify(payload));
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error sending push notification:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : "Unknown push error" };
   }
 }

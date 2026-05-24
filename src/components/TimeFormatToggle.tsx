@@ -2,16 +2,12 @@
 
 import { useAppStore } from "@/store"
 import { Switch } from "@/components/ui/switch"
-import { useEffect, useState } from "react"
+import { useMounted } from "@/hooks/useMounted"
 
 export function TimeFormatToggle() {
   const timeFormat = useAppStore(state => state.timeFormat)
   const setTimeFormat = useAppStore(state => state.setTimeFormat)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
 
   if (!mounted) {
     return <div className="h-6 w-11 bg-muted rounded-full animate-pulse" />

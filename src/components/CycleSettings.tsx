@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAppStore } from "@/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Calendar, Trash2, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { updateUserPreferences } from "@/actions/user"
+import { useMounted } from "@/hooks/useMounted"
 
 export function CycleSettings() {
   const excusedRanges = useAppStore(state => state.excusedRanges)
@@ -15,11 +16,7 @@ export function CycleSettings() {
 
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
 
   if (!mounted) return null
 
