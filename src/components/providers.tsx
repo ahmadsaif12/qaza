@@ -70,7 +70,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       }}
     >
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <ThemeProvider 
+        attribute="class" 
+        defaultTheme="system" 
+        themes={['light', 'dark', 'system', 'ocean', 'rose', 'lavender']}
+        enableSystem 
+        disableTransitionOnChange
+      >
         <SyncRunner />
         <PreferenceSync />
         {children}
