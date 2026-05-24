@@ -23,6 +23,12 @@ export function CheckInModal({
   };
 
   const handleAction = async (action: "prayed" | "qaza") => {
+    if (date === "test") {
+      alert(`Test mode: Action '${action}' clicked! No data was saved.`);
+      close();
+      return;
+    }
+    
     setLoading(true);
     try {
       await fetch(`/api/notifications/prayer-checkin/${action}`, {

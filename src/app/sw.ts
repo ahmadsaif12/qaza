@@ -70,6 +70,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  if (event.action === "test_completed" || event.action === "test_missed") {
+    // Just close the notification. In a real SW we could postMessage to the client to show a toast,
+    // but the user just wants to see what the buttons look like without backend calls.
+    return;
+  }
+
   if (event.action === "completed" || event.action === "missed") {
     const payload = event.notification.data as PushPayload["payload"];
     const endpoint = event.action === "completed" 
@@ -97,7 +103,7 @@ self.addEventListener('notificationclick', (event) => {
         if (clientList.length > 0) {
           return clientList[0].focus();
         }
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(event.notification.data?.url || '/');
       })
     );
   }

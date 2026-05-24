@@ -135,10 +135,20 @@ export function PushToggle() {
             className="w-full text-muted-foreground hover:text-foreground"
             onClick={async () => {
               const reg = await navigator.serviceWorker.ready;
-              reg.showNotification("Qaza Test", {
-                body: "If you're seeing this, your notifications are working perfectly! Alhamdulillah.",
-                icon: "/icon-192x192.png"
-              });
+              reg.showNotification("Did you pray Fajr?", {
+                body: "Quick check-in: mark it prayed if you completed it, or add it to Qaza if you missed it.",
+                icon: "/icon-192x192.png",
+                data: {
+                  url: "/?checkin=fajr&date=test",
+                  prayerName: "fajr",
+                  date: "test",
+                  type: "prayer_checkin"
+                },
+                actions: [
+                  { action: "test_completed", title: "Yes, I prayed" },
+                  { action: "test_missed", title: "No, add to Qaza" }
+                ]
+              } as any);
             }}
           >
             <BellRing className="w-4 h-4 mr-2" />
