@@ -123,7 +123,7 @@ export function PushToggle() {
             className="w-full text-muted-foreground hover:text-foreground"
             onClick={async () => {
               const reg = await navigator.serviceWorker.ready;
-              reg.showNotification("Qaza Tracker Test", {
+              reg.showNotification("Qaza Test", {
                 body: "If you're seeing this, your notifications are working perfectly! Alhamdulillah.",
                 icon: "/icon-192x192.png"
               });

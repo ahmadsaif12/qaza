@@ -8,7 +8,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Qaza Tracker - Your Prayer Buddy",
+  title: "Qaza - Your Prayer Buddy",
   description: "A gentle way to track and complete your daily and missed prayers.",
   manifest: "/manifest.json",
 };
