@@ -50,7 +50,7 @@ export function ThemeToggle() {
             {t.icon ? (
               <span className={isActive ? "text-primary" : ""}>{t.icon}</span>
             ) : (
-              <span className={`w-4 h-4 rounded-full shadow-sm border border-black/10 ${t.colorClass}`} />
+              <span className={`shrink-0 w-4 h-4 rounded-full shadow-sm border border-black/10 ${t.colorClass}`} />
             )}
             <span className={`text-sm font-semibold ${isActive ? "text-foreground" : ""}`}>
               {t.name}

@@ -105,7 +105,7 @@ export function QazaDetailSheet({ prayer, isOpen, onClose }: QazaDetailSheetProp
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="overflow-y-auto p-6 space-y-8">
               {loading ? (
                 <div className="animate-pulse space-y-4">
                   <div className="h-16 bg-muted rounded-2xl w-full" />
