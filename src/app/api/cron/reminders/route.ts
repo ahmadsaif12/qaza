@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
     for (const sub of subs) {
       const payload = JSON.stringify({
-        title: 'Qaza Tracker',
+        title: 'Qaza',
         body: "Just checking in, friend! Don't forget to track your prayers today.",
         icon: '/icon.png',
       });

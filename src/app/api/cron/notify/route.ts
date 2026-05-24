@@ -9,7 +9,7 @@ const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(
-    process.env.NEXT_PUBLIC_VAPID_SUBJECT || 'mailto:admin@qazatracker.com',
+    process.env.NEXT_PUBLIC_VAPID_SUBJECT || 'mailto:admin@qaza.com',
     vapidPublicKey,
     vapidPrivateKey
   );

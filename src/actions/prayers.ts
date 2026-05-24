@@ -34,39 +34,47 @@ export async function getQazaStats() {
   await autoBackfillMissedPrayers(userId);
 
   try {
-    const qazaCounts = await db.select({
-      prayerName: prayerLogs.prayerName,
-      count: count(),
-    }).from(prayerLogs)
-      .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["missed", "qaza_completed"])))
-      .groupBy(prayerLogs.prayerName);
+    const [
+      qazaCounts,
+      manualQazaCounts,
+      completedPrayerLogs,
+      completedManualQaza,
+      user
+    ] = await Promise.all([
+      db.select({
+        prayerName: prayerLogs.prayerName,
+        count: count(),
+      }).from(prayerLogs)
+        .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["missed", "qaza_completed"])))
+        .groupBy(prayerLogs.prayerName),
+      
+      db.select({
+        prayerName: qazaItems.prayerName,
+        count: count(),
+      }).from(qazaItems)
+        .where(eq(qazaItems.userId, userId))
+        .groupBy(qazaItems.prayerName),
+        
+      db.select({
+        prayerName: prayerLogs.prayerName,
+        count: count(),
+      }).from(prayerLogs)
+        .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "qaza_completed")))
+        .groupBy(prayerLogs.prayerName),
+        
+      db.select({
+        prayerName: qazaItems.prayerName,
+        count: count(),
+      }).from(qazaItems)
+        .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, true)))
+        .groupBy(qazaItems.prayerName),
+        
+      db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { trackWitr: true }
+      })
+    ]);
 
-    const manualQazaCounts = await db.select({
-      prayerName: qazaItems.prayerName,
-      count: count(),
-    }).from(qazaItems)
-      .where(eq(qazaItems.userId, userId))
-      .groupBy(qazaItems.prayerName);
-
-    // Also find completed ones
-    const completedPrayerLogs = await db.select({
-      prayerName: prayerLogs.prayerName,
-      count: count(),
-    }).from(prayerLogs)
-      .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "qaza_completed")))
-      .groupBy(prayerLogs.prayerName);
-
-    const completedManualQaza = await db.select({
-      prayerName: qazaItems.prayerName,
-      count: count(),
-    }).from(qazaItems)
-      .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, true)))
-      .groupBy(qazaItems.prayerName);
-
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { trackWitr: true }
-    });
     const trackWitrEnabled = user?.trackWitr || false;
 
     const backlog: Record<string, number> = {
@@ -116,14 +124,6 @@ export async function getQazaStats() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const dateStr = sevenDaysAgo.toISOString().split('T')[0];
 
-    const weeklyMissed = await db.select({ count: count() })
-      .from(prayerLogs)
-      .where(and(
-        eq(prayerLogs.userId, userId),
-        inArray(prayerLogs.status, ["missed", "qaza_completed"]),
-        gte(prayerLogs.date, dateStr)
-      ));
-
     // Today's completed Qaza count (local timezone safe)
     const today = new Date();
     const offset = today.getTimezoneOffset() * 60000;
@@ -131,21 +131,31 @@ export async function getQazaStats() {
     const todayStr = localDate.toISOString().split('T')[0];
     const startOfToday = new Date(localDate.setHours(0, 0, 0, 0));
 
-    const todayCompletedQaza = await db.select({ count: count() })
-      .from(prayerLogs)
-      .where(and(
-        eq(prayerLogs.userId, userId),
-        eq(prayerLogs.status, "qaza_completed"),
-        eq(prayerLogs.date, todayStr)
-      ));
-
-    const todayCompletedManual = await db.select({ count: count() })
-      .from(qazaItems)
-      .where(and(
-        eq(qazaItems.userId, userId),
-        eq(qazaItems.isCompleted, true),
-        gte(qazaItems.completedAt, startOfToday)
-      ));
+    const [weeklyMissed, todayCompletedQaza, todayCompletedManual] = await Promise.all([
+      db.select({ count: count() })
+        .from(prayerLogs)
+        .where(and(
+          eq(prayerLogs.userId, userId),
+          inArray(prayerLogs.status, ["missed", "qaza_completed"]),
+          gte(prayerLogs.date, dateStr)
+        )),
+        
+      db.select({ count: count() })
+        .from(prayerLogs)
+        .where(and(
+          eq(prayerLogs.userId, userId),
+          eq(prayerLogs.status, "qaza_completed"),
+          eq(prayerLogs.date, todayStr)
+        )),
+        
+      db.select({ count: count() })
+        .from(qazaItems)
+        .where(and(
+          eq(qazaItems.userId, userId),
+          eq(qazaItems.isCompleted, true),
+          gte(qazaItems.completedAt, startOfToday)
+        ))
+    ]);
 
     const todayCompletedCount = (todayCompletedQaza[0]?.count || 0) + (todayCompletedManual[0]?.count || 0);
 
@@ -502,31 +512,33 @@ export async function getPrayerInsights() {
   const userId = session.user.id;
   
   try {
-    const completedCounts = await db.select({
-      prayerName: prayerLogs.prayerName,
-      count: count(),
-    }).from(prayerLogs)
-      .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["completed", "qaza_completed"])))
-      .groupBy(prayerLogs.prayerName);
-
-    const missedLogs = await db.select({
-      prayerName: prayerLogs.prayerName,
-      count: count(),
-    }).from(prayerLogs)
-      .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "missed")))
-      .groupBy(prayerLogs.prayerName);
-      
-    const missedItems = await db.select({
-      prayerName: qazaItems.prayerName,
-      count: count(),
-    }).from(qazaItems)
-      .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, false)))
-      .groupBy(qazaItems.prayerName);
-
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: { trackWitr: true }
-    });
+    const [completedCounts, missedLogs, missedItems, user] = await Promise.all([
+      db.select({
+        prayerName: prayerLogs.prayerName,
+        count: count(),
+      }).from(prayerLogs)
+        .where(and(eq(prayerLogs.userId, userId), inArray(prayerLogs.status, ["completed", "qaza_completed"])))
+        .groupBy(prayerLogs.prayerName),
+        
+      db.select({
+        prayerName: prayerLogs.prayerName,
+        count: count(),
+      }).from(prayerLogs)
+        .where(and(eq(prayerLogs.userId, userId), eq(prayerLogs.status, "missed")))
+        .groupBy(prayerLogs.prayerName),
+        
+      db.select({
+        prayerName: qazaItems.prayerName,
+        count: count(),
+      }).from(qazaItems)
+        .where(and(eq(qazaItems.userId, userId), eq(qazaItems.isCompleted, false)))
+        .groupBy(qazaItems.prayerName),
+        
+      db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { trackWitr: true }
+      })
+    ]);
     const trackWitrEnabled = user?.trackWitr || false;
 
     const missedMap: Record<string, number> = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };

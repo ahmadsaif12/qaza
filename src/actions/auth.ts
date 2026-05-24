@@ -86,7 +86,7 @@ export async function registerUser(formData: FormData) {
       await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to: email,
-        subject: "Verify your email for Qaza Tracker",
+        subject: "Verify your email for Qaza",
         text: `Your verification code is: ${otp}`,
         html: `<p>Your verification code is: <strong>${otp}</strong></p>`
       })
@@ -185,7 +185,7 @@ export async function resendOtp(formData: FormData) {
       await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to: email,
-        subject: "Verify your email for Qaza Tracker",
+        subject: "Verify your email for Qaza",
         text: `Your verification code is: ${otp}`,
         html: `<p>Your verification code is: <strong>${otp}</strong></p>`
       })
@@ -245,7 +245,7 @@ export async function sendForgotPasswordOtp(formData: FormData) {
       await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to: email,
-        subject: "Reset your password for Qaza Tracker",
+        subject: "Reset your password for Qaza",
         text: `Your password reset code is: ${otp}`,
         html: `<p>Your password reset code is: <strong>${otp}</strong></p>`
       })
