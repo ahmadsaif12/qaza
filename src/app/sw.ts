@@ -43,14 +43,18 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === "completed" || event.action === "missed") {
     const payload = event.notification.data;
+    const endpoint = event.action === "completed" 
+      ? '/api/notifications/prayer-checkin/prayed'
+      : '/api/notifications/prayer-checkin/qaza';
+      
     event.waitUntil(
-      fetch('/api/push/log', {
+      fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prayerName: payload.prayerName,
-          status: event.action,
-          date: payload.date
+          date: payload.date,
+          userId: payload.userId // Optional: sent from cron if you include it in payload
         })
       })
     );
