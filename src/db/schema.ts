@@ -28,6 +28,8 @@ export const users = pgTable("user", {
   asrMethod: integer("asrMethod").default(0).notNull(), // 0 = Standard (Shafi'i/Maliki/Hanbali), 1 = Hanafi
   qazaPace: text("qazaPace"), // JSON string
   excusedRanges: text("excusedRanges"), // JSON string
+  dayCheckinEnabled: boolean("dayCheckinEnabled").default(true).notNull(),
+  nightSummaryEnabled: boolean("nightSummaryEnabled").default(true).notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
 })
 
@@ -104,4 +106,12 @@ export const pushSubscriptions = pgTable("push_subscription", {
   p256dh: text("p256dh").notNull(),
   auth: text("auth").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const notificationLogs = pgTable("notification_log", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  uniqueKey: text("uniqueKey").notNull().unique(), // e.g. "userId:2026-05-24:day_checkin:fajr"
+  type: text("type").notNull(), // "day_checkin", "night_summary"
+  sentAt: timestamp("sentAt", { mode: "date" }).defaultNow().notNull(),
 });

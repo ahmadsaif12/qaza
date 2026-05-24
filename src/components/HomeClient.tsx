@@ -13,12 +13,18 @@ import { Star } from "lucide-react"
 
 import { motion, AnimatePresence } from "framer-motion"
 import { OnboardingWizard } from "@/components/OnboardingWizard"
+import { useSearchParams } from "next/navigation"
+import { CheckInModal } from "@/components/CheckInModal"
 
 export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [progress, setProgress] = useState({ completed: 0, total: 5 })
   const [isMounted, setIsMounted] = useState(false)
   const [showGreeting, setShowGreeting] = useState(true)
+  
+  const searchParams = useSearchParams()
+  const checkinPrayer = searchParams.get('checkin')
+  const checkinDate = searchParams.get('date')
 
   const handleProgressChange = useCallback((completed: number, total: number) => {
     setProgress(prev => (prev.completed === completed && prev.total === total) ? prev : { completed, total })
@@ -152,6 +158,10 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
       />
 
       <OnboardingWizard />
+      
+      {checkinPrayer && checkinDate && (
+        <CheckInModal prayerName={checkinPrayer} date={checkinDate} />
+      )}
     </div>
   )
 }

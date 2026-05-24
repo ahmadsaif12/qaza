@@ -1,7 +1,7 @@
 {
   "name": "Qaza",
   "short_name": "Qaza",
-  "description": "A gentle way to track and complete your daily and missed prayers.",
+  "description": "The best way to track and complete your daily and missed prayers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

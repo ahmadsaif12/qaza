@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/notify?secret=qaza_tracker_secret_2026&prayer=Isha",
-      "schedule": "0 21 * * *"
+      "path": "/api/cron/day-prayer-checkin",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/nightly-qaza-summary",
+      "schedule": "0 17 * * *"
     }
   ]
 }
