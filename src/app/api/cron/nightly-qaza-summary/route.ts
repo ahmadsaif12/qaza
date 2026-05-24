@@ -4,10 +4,14 @@ import { users, pushSubscriptions, notificationLogs, prayerLogs } from '@/db/sch
 import { eq, and } from 'drizzle-orm';
 import { getUserLocalDate } from '@/lib/date-utils';
 import { sendPushNotification } from '@/lib/web-push';
+import { requireCronAuth } from '@/lib/cron-auth';
 
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
+  const authError = requireCronAuth(request);
+  if (authError) return authError;
+
   const allUsers = await db.query.users.findMany({
     where: eq(users.nightSummaryEnabled, true)
   });
@@ -16,8 +20,6 @@ export async function GET(request: Request) {
   let sent = 0;
   let skipped = 0;
   let errors = 0;
-
-  const prayersList = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
   for (const user of allUsers) {
     processed++;
@@ -53,8 +55,8 @@ export async function GET(request: Request) {
       const prayed = todaysLogs.filter(l => l.status === 'completed' || l.status === 'qaza_completed' || l.status === 'excused');
       const missed = todaysLogs.filter(l => l.status === 'missed' || l.status === 'qaza');
       
-      let prayedNames = prayed.map(l => l.prayerName.charAt(0).toUpperCase() + l.prayerName.slice(1));
-      let missedNames = missed.map(l => l.prayerName.charAt(0).toUpperCase() + l.prayerName.slice(1));
+      const prayedNames = prayed.map(l => l.prayerName.charAt(0).toUpperCase() + l.prayerName.slice(1));
+      const missedNames = missed.map(l => l.prayerName.charAt(0).toUpperCase() + l.prayerName.slice(1));
       
       const totalRequired = user.trackWitr ? 6 : 5;
       const allDone = prayed.length >= totalRequired;

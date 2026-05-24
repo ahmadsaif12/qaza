@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { CheckCircle2, History, Star, ChevronRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -26,18 +26,20 @@ const steps = [
   },
 ]
 
-export function OnboardingWizard() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
-  const [isMounted, setIsMounted] = useState(false)
+function subscribeToOnboarding(callback: () => void) {
+  window.addEventListener("storage", callback)
+  return () => window.removeEventListener("storage", callback)
+}
 
-  useEffect(() => {
-    setIsMounted(true)
-    const hasSeen = localStorage.getItem("qazatrack_onboarded")
-    if (!hasSeen) {
-      setIsOpen(true)
-    }
-  }, [])
+function getOnboardingSnapshot() {
+  return localStorage.getItem("qazatrack_onboarded") !== "true"
+}
+
+export function OnboardingWizard() {
+  const shouldShowOnboarding = useSyncExternalStore(subscribeToOnboarding, getOnboardingSnapshot, () => false)
+  const [dismissed, setDismissed] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const isOpen = shouldShowOnboarding && !dismissed
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -49,10 +51,8 @@ export function OnboardingWizard() {
 
   const finishOnboarding = () => {
     localStorage.setItem("qazatrack_onboarded", "true")
-    setIsOpen(false)
+    setDismissed(true)
   }
-
-  if (!isMounted) return null
 
   return (
     <AnimatePresence>

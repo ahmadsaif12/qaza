@@ -1,1 +1,1 @@
-import { CalculationMethod, Madhab, Coordinates, PrayerTimes } from 'adhan';  
+export { CalculationMethod, Madhab, Coordinates, PrayerTimes } from 'adhan'

@@ -1,7 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { useAppStore } from '@/store';
+import { useAppStore, type OfflinePrayerMutation } from '@/store';
 import { syncPrayerMutations } from '@/actions/prayers';
 import { useQueryClient } from '@tanstack/react-query';
+
+type PrayerQueryData = {
+  data?: {
+    prayerName: string
+    status: string
+    date: string
+  }[]
+}
 
 export function useSyncMutations() {
   const offlineMutations = useAppStore(state => state.offlineMutations);
@@ -25,7 +33,7 @@ export function useSyncMutations() {
             snapshot.forEach(mut => {
               if (mut.type === "LOG_PRAYER") {
                 const dateStr = mut.payload.date.split('T')[0];
-                queryClient.setQueryData(['prayers', dateStr], (old: any) => {
+                queryClient.setQueryData(['prayers', dateStr], (old: PrayerQueryData | undefined) => {
                   if (!old || !old.data) return old;
                   const newData = [...old.data];
                   const existingIdx = newData.findIndex(p => p.prayerName === mut.payload.prayerName);
@@ -51,7 +59,7 @@ export function useSyncMutations() {
           isSyncing.current = false;
           
           // If new mutations came in while syncing, trigger again
-          const currentMutations = useAppStore.getState().offlineMutations;
+          const currentMutations: OfflinePrayerMutation[] = useAppStore.getState().offlineMutations;
           if (currentMutations.length > snapshot.length) {
             handleOnline();
           }

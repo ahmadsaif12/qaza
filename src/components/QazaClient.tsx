@@ -2,7 +2,6 @@
 
 import { Card } from "@/components/ui/card"
 import { useState } from "react"
-import { ChevronRight } from "lucide-react"
 import { DonutChart } from "@/components/DonutChart"
 import { QazaDetailSheet } from "@/components/QazaDetailSheet"
 import { useAppStore } from "@/store"
@@ -78,7 +77,7 @@ export function QazaClient({ stats: initialStats }: QazaClientProps) {
         <div className="bg-primary/5 border border-primary/20 p-5 rounded-3xl shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-sm font-bold text-foreground">Today's Qaza Goal</h4>
+              <h4 className="text-sm font-bold text-foreground">Today&apos;s Qaza Goal</h4>
               <p className="text-xs text-muted-foreground mt-0.5">Target: {targetCount} prayers per day</p>
             </div>
             <span className="text-lg font-extrabold text-primary">{todayCount} / {targetCount}</span>
@@ -95,7 +94,7 @@ export function QazaClient({ stats: initialStats }: QazaClientProps) {
           
           {progressPercent >= 100 ? (
             <p className="text-xs text-emerald-600 font-semibold text-center bg-emerald-50 py-1.5 rounded-xl border border-emerald-200/50">
-              Alhamdulillah, today's catch-up target met! Keep it up.
+              Alhamdulillah, today&apos;s catch-up target met! Keep it up.
             </p>
           ) : (
             forecastText && (
@@ -111,7 +110,7 @@ export function QazaClient({ stats: initialStats }: QazaClientProps) {
         <div className="bg-muted/10 border border-border/40 p-4 rounded-3xl text-center space-y-1">
           <p className="text-xs font-semibold text-foreground/80">Want a completion timeline?</p>
           <p className="text-[11px] text-muted-foreground">
-            Set a Daily Catch-up Target in Settings to estimate when you'll finish.
+            Set a Daily Catch-up Target in Settings to estimate when you&apos;ll finish.
           </p>
         </div>
       )}

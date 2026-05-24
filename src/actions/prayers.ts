@@ -1,25 +1,52 @@
 "use server"
 
-import { and, eq, count, gte, inArray, desc } from "drizzle-orm"
+import { and, eq, count, gte, inArray } from "drizzle-orm"
 import { qazaItems, prayerLogs, users } from "@/db/schema"
 import { db } from "@/db"
 import { auth } from "@/auth"
+import {
+  excusedRangeSchema,
+  getZodError,
+  isoDateSchema,
+  prayerNameSchema,
+  qazaAmountSchema,
+  syncPrayerMutationListSchema,
+  type ExcusedRange,
+  type PrayerName,
+  type PrayerStatus,
+} from "@/lib/validation"
+import { upsertPrayerStatus } from "@/lib/prayer-writes"
+import { z } from "zod"
+
+function parseStoredExcusedRanges(value: string | null | undefined): ExcusedRange[] {
+  if (!value) return []
+
+  try {
+    return z.array(excusedRangeSchema).parse(JSON.parse(value))
+  } catch {
+    return []
+  }
+}
 
 export async function getTodayPrayers(dateStr?: string) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
   const targetDate = dateStr || new Date().toISOString().split('T')[0];
+  const parsedDate = isoDateSchema.safeParse(targetDate)
+  if (!parsedDate.success) {
+    return { error: getZodError(parsedDate.error) }
+  }
   
   try {
     const logs = await db.query.prayerLogs.findMany({
       where: and(
         eq(prayerLogs.userId, session.user.id),
-        eq(prayerLogs.date, targetDate)
+        eq(prayerLogs.date, parsedDate.data)
       )
     });
     return { success: true, data: logs };
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch" };
   }
 }
@@ -168,7 +195,7 @@ export async function getQazaStats() {
         todayCompletedCount
       } 
     };
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch" };
   }
 }
@@ -178,22 +205,33 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
   if (!session?.user?.id) return { error: "Unauthorized" }
   const userId = session.user.id;
 
-  try {
-    const pNameLower = prayerName.toLowerCase();
-    const pNameTitle = pNameLower.charAt(0).toUpperCase() + pNameLower.slice(1);
+  const parsedPrayer = prayerNameSchema.safeParse(prayerName)
+  if (!parsedPrayer.success) {
+    return { error: getZodError(parsedPrayer.error) }
+  }
 
-    if (amount > 0) {
-      const values = Array(amount).fill(0).map(() => ({
+  const parsedAmount = qazaAmountSchema.safeParse(amount)
+  if (!parsedAmount.success) {
+    return { error: getZodError(parsedAmount.error) }
+  }
+
+  try {
+    const pNameLower = parsedPrayer.data;
+    const pNameTitle = pNameLower.charAt(0).toUpperCase() + pNameLower.slice(1);
+    const qazaAmount = parsedAmount.data;
+
+    if (qazaAmount > 0) {
+      const values = Array(qazaAmount).fill(0).map(() => ({
         userId,
-        prayerName: pNameTitle, // Standardize on title case for new historic backlog items
+        prayerName: pNameLower,
         isCompleted: false,
       }));
       const chunkSize = 1000;
       for (let i = 0; i < values.length; i += chunkSize) {
         await db.insert(qazaItems).values(values.slice(i, i + chunkSize));
       }
-    } else if (amount < 0) {
-      let remainingToComplete = Math.abs(amount);
+    } else if (qazaAmount < 0) {
+      let remainingToComplete = Math.abs(qazaAmount);
 
       // First try to tick off specific missed prayers (most recent first)
       const oldestMissedLogs = await db.query.prayerLogs.findMany({
@@ -209,7 +247,7 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
       if (oldestMissedLogs.length > 0) {
         const ids = oldestMissedLogs.map(l => l.id);
         await db.update(prayerLogs)
-          .set({ status: "qaza_completed" })
+          .set({ status: "qaza_completed", completedAt: new Date() })
           .where(inArray(prayerLogs.id, ids));
           
         remainingToComplete -= oldestMissedLogs.length;
@@ -234,7 +272,7 @@ export async function updateBulkQaza(prayerName: string, amount: number) {
       }
     }
     return { success: true }
-  } catch(e) {
+  } catch {
     return { error: "Failed to update" }
   }
 }
@@ -246,10 +284,20 @@ export async function getWeeklyConsistency(clientDateStr?: string, daysBack: num
   const userId = session.user.id;
   
   const todayStr = clientDateStr || new Date().toISOString().split('T')[0];
-  const todayDate = new Date(todayStr); // Parses strictly as midnight UTC
+  const parsedToday = isoDateSchema.safeParse(todayStr)
+  if (!parsedToday.success) {
+    return { error: getZodError(parsedToday.error) }
+  }
+
+  const parsedDaysBack = z.coerce.number().int().min(1).max(31).safeParse(daysBack)
+  if (!parsedDaysBack.success) {
+    return { error: getZodError(parsedDaysBack.error) }
+  }
+
+  const todayDate = new Date(parsedToday.data); // Parses strictly as midnight UTC
   
   const startDateObj = new Date(todayDate);
-  startDateObj.setUTCDate(startDateObj.getUTCDate() - (daysBack - 1));
+  startDateObj.setUTCDate(startDateObj.getUTCDate() - (parsedDaysBack.data - 1));
   const dateStr = startDateObj.toISOString().split('T')[0];
 
   try {
@@ -257,7 +305,7 @@ export async function getWeeklyConsistency(clientDateStr?: string, daysBack: num
     const joinDate = user ? new Date(user.createdAt) : new Date();
     const joinDateStr = joinDate.toISOString().split('T')[0];
     const trackWitrEnabled = user?.trackWitr || false;
-    const excusedRanges: { start: string, end: string }[] = user?.excusedRanges ? JSON.parse(user.excusedRanges) : [];
+    const excusedRanges = parseStoredExcusedRanges(user?.excusedRanges);
     
     const isDateExcused = (dStr: string) => {
       return excusedRanges.some(r => dStr >= r.start && dStr <= r.end);
@@ -274,7 +322,7 @@ export async function getWeeklyConsistency(clientDateStr?: string, daysBack: num
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const consistency: { name: string, date: string, prayers: number, isExcused: boolean, requiredCount: number }[] = [];
 
-    for (let i = daysBack - 1; i >= 0; i--) {
+    for (let i = parsedDaysBack.data - 1; i >= 0; i--) {
       const d = new Date(todayDate);
       d.setUTCDate(d.getUTCDate() - i);
       const dStr = d.toISOString().split('T')[0];
@@ -299,54 +347,38 @@ export async function getWeeklyConsistency(clientDateStr?: string, daysBack: num
     });
 
     return { success: true, data: consistency };
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch" };
   }
 }
 
-export async function syncPrayerMutations(mutations: any[]) {
+export async function syncPrayerMutations(mutations: unknown) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
   const userId = session.user.id;
 
+  const parsedMutations = syncPrayerMutationListSchema.safeParse(mutations)
+  if (!parsedMutations.success) {
+    return { error: getZodError(parsedMutations.error) }
+  }
+
   try {
     // Process unique mutations only (last one wins for the same prayer and date)
-    const latestMutations = new Map();
-    for (const mut of mutations) {
-      if (mut.type === "LOG_PRAYER") {
-        const dStr = String(mut.payload.date).split('T')[0];
-        const key = `${mut.payload.prayerName}-${dStr}`;
-        latestMutations.set(key, mut.payload);
-      }
+    const latestMutations = new Map<string, {
+      prayerName: PrayerName
+      date: string
+      status: PrayerStatus
+    }>();
+
+    for (const mut of parsedMutations.data) {
+      const key = `${mut.payload.prayerName}-${mut.payload.date}`;
+      latestMutations.set(key, mut.payload);
     }
 
-    for (const [_, payload] of latestMutations) {
+    for (const payload of latestMutations.values()) {
       const { prayerName, date, status } = payload;
-      const targetDate = String(date).split('T')[0];
-      
-      const existing = await db.query.prayerLogs.findFirst({
-        where: and(
-          eq(prayerLogs.userId, userId),
-          eq(prayerLogs.prayerName, prayerName),
-          eq(prayerLogs.date, targetDate)
-        )
-      });
-
-      if (existing) {
-        await db.update(prayerLogs).set({
-          status,
-          completedAt: status === 'completed' ? new Date() : null,
-        }).where(eq(prayerLogs.id, existing.id));
-      } else {
-        await db.insert(prayerLogs).values({
-          userId,
-          prayerName,
-          date: targetDate,
-          status,
-          completedAt: status === 'completed' ? new Date() : null,
-        });
-      }
+      await upsertPrayerStatus({ userId, prayerName, date, status });
     }
     return { success: true };
   } catch (error) {
@@ -355,7 +387,7 @@ export async function syncPrayerMutations(mutations: any[]) {
   }
 }
 
-export async function autoBackfillMissedPrayers(userId: string) {
+async function autoBackfillMissedPrayers(userId: string) {
   try {
     const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
     if (!user) return { error: "User not found" };
@@ -389,22 +421,22 @@ export async function autoBackfillMissedPrayers(userId: string) {
       )
     });
 
-    const existingSet = new Set();
+    const existingSet = new Set<string>();
     logs.forEach(l => existingSet.add(`${l.date}-${l.prayerName.toLowerCase()}`));
 
-    const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+    const prayers: PrayerName[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
     if (user.trackWitr) {
       prayers.push("witr");
     }
 
-    const excusedRanges: { start: string, end: string }[] = user.excusedRanges ? JSON.parse(user.excusedRanges) : [];
+    const excusedRanges = parseStoredExcusedRanges(user.excusedRanges);
     const isDateExcused = (dStr: string) => {
       return excusedRanges.some(r => dStr >= r.start && dStr <= r.end);
     };
 
-    const missing: { userId: string, prayerName: string, date: string, status: string }[] = [];
+    const missing: { userId: string, prayerName: PrayerName, date: string, status: PrayerStatus }[] = [];
 
-    let current = new Date(startDate);
+    const current = new Date(startDate);
     while (current <= yesterday) {
       const dStr = current.toISOString().split('T')[0];
       prayers.forEach(p => {
@@ -424,13 +456,17 @@ export async function autoBackfillMissedPrayers(userId: string) {
     if (missing.length > 0) {
       const chunkSize = 1000;
       for (let i = 0; i < missing.length; i += chunkSize) {
-        await db.insert(prayerLogs).values(missing.slice(i, i + chunkSize));
+        await db.insert(prayerLogs)
+          .values(missing.slice(i, i + chunkSize))
+          .onConflictDoNothing({
+            target: [prayerLogs.userId, prayerLogs.date, prayerLogs.prayerName],
+          });
       }
     }
 
     return { success: true, count: missing.length };
-  } catch (e) {
-    console.error("Backfill error:", e);
+  } catch (error) {
+    console.error("Backfill error:", error);
     return { error: "Failed to backfill" };
   }
 }
@@ -440,8 +476,13 @@ export async function getDetailedQaza(prayerName: string) {
   if (!session?.user?.id) return { error: "Unauthorized" }
   const userId = session.user.id;
 
+  const parsedPrayer = prayerNameSchema.safeParse(prayerName)
+  if (!parsedPrayer.success) {
+    return { error: getZodError(parsedPrayer.error) }
+  }
+
   try {
-    const pNameLower = prayerName.toLowerCase();
+    const pNameLower = parsedPrayer.data;
     const pNameTitle = pNameLower.charAt(0).toUpperCase() + pNameLower.slice(1);
 
     const logs = await db.query.prayerLogs.findMany({
@@ -480,7 +521,7 @@ export async function getDetailedQaza(prayerName: string) {
     specificDates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return { success: true, data: { bulkCount, specificDates } };
-  } catch (e) {
+  } catch {
     return { error: "Failed to fetch detailed qaza" };
   }
 }
@@ -490,18 +531,27 @@ export async function completeDetailedQaza(id: string, type: 'log' | 'item') {
   if (!session?.user?.id) return { error: "Unauthorized" }
   const userId = session.user.id;
 
+  const parsedInput = z.object({
+    id: z.string().uuid(),
+    type: z.enum(["log", "item"]),
+  }).safeParse({ id, type })
+
+  if (!parsedInput.success) {
+    return { error: getZodError(parsedInput.error) }
+  }
+
   try {
-    if (type === 'log') {
+    if (parsedInput.data.type === 'log') {
       await db.update(prayerLogs)
         .set({ status: 'qaza_completed', completedAt: new Date() })
-        .where(and(eq(prayerLogs.id, id), eq(prayerLogs.userId, userId)));
+        .where(and(eq(prayerLogs.id, parsedInput.data.id), eq(prayerLogs.userId, userId)));
     } else {
       await db.update(qazaItems)
         .set({ isCompleted: true, completedAt: new Date() })
-        .where(and(eq(qazaItems.id, id), eq(qazaItems.userId, userId)));
+        .where(and(eq(qazaItems.id, parsedInput.data.id), eq(qazaItems.userId, userId)));
     }
     return { success: true };
-  } catch (e) {
+  } catch {
     return { error: "Failed to complete" };
   }
 }
@@ -571,7 +621,7 @@ export async function getPrayerInsights() {
     });
 
     return { success: true, data: { mostPrayed, mostMissed } };
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch insights" };
   }
 }
@@ -585,7 +635,7 @@ export async function resetAllData() {
     await db.delete(prayerLogs).where(eq(prayerLogs.userId, userId));
     await db.delete(qazaItems).where(eq(qazaItems.userId, userId));
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: "Failed to reset data" };
   }
 }

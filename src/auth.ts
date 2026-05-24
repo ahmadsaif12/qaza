@@ -10,10 +10,7 @@ import bcrypt from "bcryptjs"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
   providers: [
-    Google({
-      allowDangerousEmailAccountLinking: true
-    }),
-    // We will use a mock credentials provider to start, until the user provides OAuth keys or we implement full bcrypt hashing
+    Google({}),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -21,9 +18,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       authorize: async (credentials) => {
         if (!credentials?.email || !credentials?.password) return null;
+        const email = String(credentials.email).trim().toLowerCase();
         
         const user = await db.query.users.findFirst({ 
-          where: eq(users.email, credentials.email as string) 
+          where: eq(users.email, email) 
         });
 
         if (!user || !user.password) return null;

@@ -1,7 +1,6 @@
-import { auth, signOut } from "@/auth"
+import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { PushToggle } from "@/components/PushToggle"
 import { ResetDataButton } from "@/components/ResetDataButton"
 import { TimeFormatToggle } from "@/components/TimeFormatToggle"
@@ -9,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle"
 import { TimingSettings } from "@/components/TimingSettings"
 import { PacingSettings } from "@/components/PacingSettings"
 import { CycleSettings } from "@/components/CycleSettings"
+import { LogoutButton } from "@/components/LogoutButton"
 
 export default async function SettingsPage() {
   const session = await auth()
@@ -74,17 +74,9 @@ export default async function SettingsPage() {
         </Card>
 
         {/* Separate Log Out Button */}
-        <form
-          action={async () => {
-            "use server"
-            await signOut({ redirectTo: "/login" })
-          }}
-          className="pt-4"
-        >
-          <Button type="submit" variant="secondary" className="w-full rounded-xl h-12 font-semibold bg-muted text-foreground hover:bg-muted/80 transition-colors">
-            Log Out
-          </Button>
-        </form>
+        <div className="pt-4">
+          <LogoutButton />
+        </div>
       </section>
     </main>
   )

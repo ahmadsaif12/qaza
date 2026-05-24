@@ -15,11 +15,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import { OnboardingWizard } from "@/components/OnboardingWizard"
 import { useSearchParams } from "next/navigation"
 import { CheckInModal } from "@/components/CheckInModal"
+import { useMounted } from "@/hooks/useMounted"
+
+type ConsistencyDay = {
+  prayers: number
+  requiredCount?: number
+  isExcused?: boolean
+}
 
 export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [progress, setProgress] = useState({ completed: 0, total: 5 })
-  const [isMounted, setIsMounted] = useState(false)
+  const isMounted = useMounted()
   const [showGreeting, setShowGreeting] = useState(true)
   
   const searchParams = useSearchParams()
@@ -31,7 +38,6 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   }, [])
 
   useEffect(() => {
-    setIsMounted(true)
     const t = setTimeout(() => setShowGreeting(false), 2500)
     return () => clearTimeout(t)
   }, [])
@@ -48,9 +54,9 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
   let streak = 0;
 
   if (consistencyRes?.success && consistencyRes.data) {
-    const data = consistencyRes.data;
+    const data: ConsistencyDay[] = consistencyRes.data;
     
-    data.forEach((day: any) => {
+    data.forEach((day) => {
       if (!day.isExcused) {
         totalWeekly += day.prayers;
         totalRequiredWeekly += day.requiredCount ?? 5;
@@ -108,7 +114,7 @@ export function HomeClient({ userName = "Friend" }: { userName?: string }) {
                   Assalamu Alaikum, {userName}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Let's catch up together.
+                  Let&apos;s catch up together.
                 </p>
               </motion.div>
             ) : (

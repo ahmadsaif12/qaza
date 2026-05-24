@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchPrayerTimes, PrayerTimes } from '@/lib/aladhan';
+import { fetchPrayerTimes } from '@/lib/aladhan';
 import { useAppStore } from '@/store';
 
 export function usePrayerTimes(dateStr: string) {

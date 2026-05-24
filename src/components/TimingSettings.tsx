@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAppStore } from "@/store"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Compass, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { updateUserPreferences, updateUserLocation } from "@/actions/user"
+import { useMounted } from "@/hooks/useMounted"
 
 const CALC_METHODS = [
   { id: 1, name: "Karachi (Univ of Islamic Sciences)" },
@@ -15,13 +16,12 @@ const CALC_METHODS = [
   { id: 3, name: "MWL (Muslim World League)" },
   { id: 4, name: "Umm Al-Qura (Makkah)" },
   { id: 5, name: "Egyptian General Authority" },
+  { id: 7, name: "Tehran (Institute of Geophysics)" },
   { id: 8, name: "Gulf Region" },
   { id: 9, name: "Kuwait" },
   { id: 10, name: "Qatar" },
   { id: 11, name: "Singapore (MUIS)" },
-  { id: 12, name: "France (UOIF)" },
   { id: 13, name: "Turkey (Diyanet)" },
-  { id: 14, name: "Russia (SAMR)" },
 ]
 
 export function TimingSettings() {
@@ -38,11 +38,7 @@ export function TimingSettings() {
   const setTrackWitr = useAppStore(state => state.setTrackWitr)
 
   const [detecting, setDetecting] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
 
   if (!mounted) return null
 
@@ -171,7 +167,7 @@ export function TimingSettings() {
           onChange={(e) => handleAsrMethodChange(Number(e.target.value))}
           className="w-full bg-background border border-border/60 rounded-xl px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/45 focus:border-primary transition-all shadow-sm"
         >
-          <option value={0}>Standard (Shafi'i, Maliki, Hanbali)</option>
+          <option value={0}>Standard (Shafi&apos;i, Maliki, Hanbali)</option>
           <option value={1}>Hanafi (Later Asr time)</option>
         </select>
       </div>

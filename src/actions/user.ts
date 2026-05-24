@@ -5,6 +5,24 @@ import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
+import {
+  excusedRangeSchema,
+  geolocationSchema,
+  getZodError,
+  qazaPaceSchema,
+  userPreferencesSchema,
+} from "@/lib/validation"
+import { z } from "zod"
+
+function parseJsonValue<T>(value: string | null, schema: z.ZodType<T>, fallback: T) {
+  if (!value) return fallback
+
+  try {
+    return schema.parse(JSON.parse(value))
+  } catch {
+    return fallback
+  }
+}
 
 export async function getUserPreferences() {
   const session = await auth()
@@ -31,8 +49,8 @@ export async function getUserPreferences() {
       success: true,
       data: {
         ...user,
-        qazaPace: user.qazaPace ? JSON.parse(user.qazaPace) : null,
-        excusedRanges: user.excusedRanges ? JSON.parse(user.excusedRanges) : [],
+        qazaPace: parseJsonValue(user.qazaPace, qazaPaceSchema.nullable(), null),
+        excusedRanges: parseJsonValue(user.excusedRanges, z.array(excusedRangeSchema), []),
       }
     }
   } catch (e) {
@@ -41,22 +59,28 @@ export async function getUserPreferences() {
   }
 }
 
-export async function updateUserPreferences(data: {
-  calcMethod?: number
-  asrMethod?: number
-  trackWitr?: boolean
-  qazaPace?: any
-  excusedRanges?: any
-}) {
+export async function updateUserPreferences(data: unknown) {
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
-  const updateData: any = {}
-  if (data.calcMethod !== undefined) updateData.calcMethod = data.calcMethod
-  if (data.asrMethod !== undefined) updateData.asrMethod = data.asrMethod
-  if (data.trackWitr !== undefined) updateData.trackWitr = data.trackWitr
-  if (data.qazaPace !== undefined) updateData.qazaPace = JSON.stringify(data.qazaPace)
-  if (data.excusedRanges !== undefined) updateData.excusedRanges = JSON.stringify(data.excusedRanges)
+  const parsed = userPreferencesSchema.safeParse(data)
+  if (!parsed.success) {
+    return { error: getZodError(parsed.error) }
+  }
+
+  const updateData: {
+    calcMethod?: number
+    asrMethod?: number
+    trackWitr?: boolean
+    qazaPace?: string | null
+    excusedRanges?: string
+  } = {}
+
+  if (parsed.data.calcMethod !== undefined) updateData.calcMethod = parsed.data.calcMethod
+  if (parsed.data.asrMethod !== undefined) updateData.asrMethod = parsed.data.asrMethod
+  if (parsed.data.trackWitr !== undefined) updateData.trackWitr = parsed.data.trackWitr
+  if (parsed.data.qazaPace !== undefined) updateData.qazaPace = parsed.data.qazaPace ? JSON.stringify(parsed.data.qazaPace) : null
+  if (parsed.data.excusedRanges !== undefined) updateData.excusedRanges = JSON.stringify(parsed.data.excusedRanges)
 
   try {
     await db.update(users).set(updateData).where(eq(users.id, session.user.id))
@@ -75,11 +99,16 @@ export async function updateUserLocation(lat: number, lng: number, timezone: str
   const session = await auth()
   if (!session?.user?.id) return { error: "Unauthorized" }
 
+  const parsed = geolocationSchema.safeParse({ lat, lng, timezone })
+  if (!parsed.success) {
+    return { error: getZodError(parsed.error) }
+  }
+
   try {
     await db.update(users).set({
-      latitude: lat,
-      longitude: lng,
-      timezone,
+      latitude: parsed.data.lat,
+      longitude: parsed.data.lng,
+      timezone: parsed.data.timezone,
     }).where(eq(users.id, session.user.id))
     
     revalidatePath("/")

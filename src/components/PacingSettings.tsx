@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useAppStore } from "@/store"
-import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { updateUserPreferences } from "@/actions/user"
+import { useMounted } from "@/hooks/useMounted"
 
 const PACE_MODES = [
   { id: "none", name: "Free Pace (Log whenever you pray)" },
@@ -16,11 +15,7 @@ const PACE_MODES = [
 export function PacingSettings() {
   const qazaPace = useAppStore(state => state.qazaPace)
   const setQazaPace = useAppStore(state => state.setQazaPace)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
 
   if (!mounted) return null
 

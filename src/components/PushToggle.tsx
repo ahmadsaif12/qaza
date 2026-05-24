@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { BellRing } from "lucide-react"
 import { toast } from "sonner"
+import { useMounted } from "@/hooks/useMounted"
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -19,18 +20,23 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export function PushToggle() {
   const [isSubscribed, setIsSubscribed] = useState(false)
-  const [isSupported, setIsSupported] = useState(false)
+  const mounted = useMounted()
+  const isSupported = mounted && 'serviceWorker' in navigator && 'PushManager' in window
 
   useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      setIsSupported(true)
-      navigator.serviceWorker.ready.then(reg => {
+    if (!isSupported) return
+
+    let isActive = true
+    navigator.serviceWorker.ready.then(reg => {
         reg.pushManager.getSubscription().then(sub => {
-          setIsSubscribed(!!sub)
+          if (isActive) setIsSubscribed(!!sub)
         })
       })
+
+    return () => {
+      isActive = false
     }
-  }, [])
+  }, [isSupported])
 
   const handleToggle = async (checked: boolean) => {
     try {
@@ -81,13 +87,15 @@ export function PushToggle() {
       })
 
       // Send to server
+      const body = {
+        subscription: sub,
+        ...(lat !== null && lng !== null ? { location: { lat, lng, timezone } } : {}),
+      }
+
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscription: sub,
-          location: { lat, lng, timezone }
-        })
+        body: JSON.stringify(body)
       })
 
       if (!res.ok) throw new Error("Failed to save subscription")
@@ -99,6 +107,10 @@ export function PushToggle() {
       setIsSubscribed(false)
       toast.error("Failed to configure push notifications")
     }
+  }
+
+  if (!mounted) {
+    return <div className="h-6 w-11 bg-muted rounded-full animate-pulse" />
   }
 
   if (!isSupported) {

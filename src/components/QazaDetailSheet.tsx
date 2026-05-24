@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { getDetailedQaza, completeDetailedQaza, updateBulkQaza } from "@/actions/prayers"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 interface QazaDetailSheetProps {
   prayer: string;
@@ -22,14 +21,25 @@ export function QazaDetailSheet({ prayer, isOpen, onClose }: QazaDetailSheetProp
   const [bulkAmount, setBulkAmount] = useState("")
 
   useEffect(() => {
-    if (isOpen && prayer) {
+    let isActive = true
+
+    async function loadDetails() {
       setLoading(true)
-      getDetailedQaza(prayer).then(res => {
-        if (res.success && res.data) {
-          setData(res.data)
-        }
-        setLoading(false)
-      })
+      const res = await getDetailedQaza(prayer)
+      if (!isActive) return
+
+      if (res.success && res.data) {
+        setData(res.data)
+      }
+      setLoading(false)
+    }
+
+    if (isOpen && prayer) {
+      void loadDetails()
+    }
+
+    return () => {
+      isActive = false
     }
   }, [isOpen, prayer])
 
