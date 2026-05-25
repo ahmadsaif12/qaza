@@ -66,6 +66,11 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
       const pullDistance = Math.min(deltaY * 0.4, MAX_PULL)
 
       if (pullDistance >= THRESHOLD && !isRefreshing) {
+        // Trigger haptic feedback if available
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(50)
+        }
+
         setIsRefreshing(true)
         controls.start({ y: 50, transition: { type: "spring", stiffness: 300, damping: 25 } })
         
@@ -80,12 +85,12 @@ export function PullToRefresh({ children }: PullToRefreshProps) {
           await new Promise(resolve => setTimeout(resolve, 600))
         } finally {
           setIsRefreshing(false)
-          controls.start({ y: 0, transition: { type: "spring", stiffness: 300, damping: 25 } })
+          controls.start({ y: 0, transition: { type: "spring", stiffness: 400, damping: 30 } })
           setPullProgress(0)
         }
       } else {
         // Snap back if threshold not met
-        controls.start({ y: 0, transition: { type: "spring", stiffness: 300, damping: 25 } })
+        controls.start({ y: 0, transition: { type: "spring", stiffness: 400, damping: 30 } })
         setPullProgress(0)
       }
     }

@@ -103,6 +103,8 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     return nowMins < pTimes[0].mins ? "Isha" : null;
   }, [timings, dateStr, nowTick]);
 
+  const [lastActionMessage, setLastActionMessage] = useState("")
+
   if (isTimingsLoading || isDbLoading) {
     return <div className="animate-pulse space-y-3">
       {requiredPrayers.map((p) => (
@@ -117,6 +119,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   const handleToggle = (prayer: string) => {
     if (isFuture) {
       toast.error("You cannot log prayers for future dates!");
+      setLastActionMessage(`Cannot log ${prayer} for a future date.`)
       return;
     }
 
@@ -124,6 +127,9 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     
     if (isCompleted) {
       toast.success(`Alhamdulillah, ${prayer} logged!`)
+      setLastActionMessage(`${prayer} marked as completed.`)
+    } else {
+      setLastActionMessage(`${prayer} marked as uncompleted.`)
     }
     
     addMutation({
@@ -134,6 +140,10 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
 
   return (
     <div className="w-full space-y-3">
+      {/* Visually hidden but announced region for screen readers */}
+      <div aria-live="polite" className="sr-only">
+        {lastActionMessage}
+      </div>
       {requiredPrayers.map((prayer) => {
         let time = timings ? timings[prayer as keyof typeof timings] : "--:--"
         if (prayer === "Witr") {
@@ -163,8 +173,19 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             animate={{ opacity: 1, y: 0 }}
             key={prayer}
             onClick={() => handleToggle(prayer)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleToggle(prayer)
+              }
+            }}
+            tabIndex={0}
+            role="button"
+            aria-pressed={isDone}
+            aria-disabled={isFuture}
+            aria-label={isDone ? `${prayer} is completed` : `Mark ${prayer} as prayed`}
             className={`
-              p-5 rounded-2xl flex items-center justify-between transition-all border
+              p-5 rounded-2xl flex items-center justify-between transition-all border select-none
               ${isFuture ? 'bg-muted/30 border-border/30 cursor-not-allowed opacity-60' : 
                 isDone ? 'bg-primary/5 border-primary/30 shadow-sm cursor-pointer' : 
                 'bg-card border-border/60 hover:border-primary/30 shadow-sm cursor-pointer'}
@@ -181,14 +202,15 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">{time}</p>
+              <p className="text-sm text-muted-foreground" aria-hidden="true">{time}</p>
             </div>
             
-            <motion.button 
+            <motion.div
               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center overflow-hidden transition-colors ${
                 isDone ? 'bg-primary border-primary text-primary-foreground' : 'border-border'
               }`}
               whileTap={{ scale: 0.85 }}
+              aria-hidden="true"
             >
               <motion.div
                 initial={false}
@@ -201,7 +223,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
               >
                 <Check size={16} strokeWidth={3} />
               </motion.div>
-            </motion.button>
+            </motion.div>
           </motion.div>
         )
       })}
