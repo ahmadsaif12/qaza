@@ -122,17 +122,29 @@ export function QazaClient({ stats: initialStats }: QazaClientProps) {
             const isLast = index === arr.length - 1;
             const isOdd = arr.length % 2 !== 0;
             const cardSpanClass = isLast && isOdd ? 'col-span-2 mx-auto w-full max-w-[50%]' : '';
+            const isCaughtUp = count === 0;
+
             return (
               <Card 
                 key={prayer} 
                 onClick={() => setSelectedPrayer(prayer)}
-                className={`border-border/60 shadow-sm bg-card hover:border-primary/30 transition-all overflow-hidden cursor-pointer active:scale-[0.98] flex flex-col justify-center p-4 min-h-[100px] ${cardSpanClass}`}
+                className={`transition-all overflow-hidden cursor-pointer active:scale-[0.98] flex flex-col justify-center p-4 min-h-[100px] shadow-sm ${cardSpanClass} ${
+                  isCaughtUp
+                    ? 'bg-muted/10 border-border/30 opacity-70 hover:opacity-100'
+                    : 'bg-card border-border/60 hover:border-primary/30'
+                }`}
               >
                 <div className="flex flex-col items-center text-center">
-                  <h3 className="text-lg font-bold">{prayer}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <span className="font-semibold text-foreground text-sm">{count}</span> remaining
-                  </p>
+                  <h3 className={`text-lg font-bold ${isCaughtUp ? 'text-muted-foreground' : ''}`}>{prayer}</h3>
+                  {isCaughtUp ? (
+                    <div className="mt-1 flex items-center justify-center gap-1 text-emerald-600/80 bg-emerald-50/50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-medium">Caught Up</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <span className="font-semibold text-foreground text-sm">{count}</span> remaining
+                    </p>
+                  )}
                 </div>
               </Card>
             )

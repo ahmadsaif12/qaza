@@ -18,12 +18,12 @@ export function BottomNav() {
   ]
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-md border-t border-border/50 flex justify-center z-[100]">
-      <nav className="flex items-center justify-around w-full max-w-md relative px-2">
+    <div className="fixed bottom-0 left-0 right-0 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-md border-t border-border/50 flex justify-center z-[100]">
+      <nav className="flex items-center justify-around w-full max-w-md relative px-4">
         {navItems.slice(0, 2).map((item) => {
           const isActive = pathname === item.href
           return (
-            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-2 w-16">
+            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-3 w-16 min-h-[44px] min-w-[44px] active:scale-95 transition-transform">
               <item.icon className={`mb-1 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} size={24} />
               <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {item.name}
@@ -45,7 +45,7 @@ export function BottomNav() {
         {navItems.slice(2, 4).map((item) => {
           const isActive = pathname === item.href
           return (
-            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-2 w-16">
+            <Link key={item.name} href={item.href} prefetch={false} className="relative flex flex-col items-center p-3 w-16 min-h-[44px] min-w-[44px] active:scale-95 transition-transform">
               <item.icon className={`mb-1 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} size={24} />
               <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
                 {item.name}
