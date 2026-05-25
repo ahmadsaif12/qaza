@@ -177,11 +177,14 @@ export function QazaDetailSheet({ prayer, isOpen, onClose }: QazaDetailSheetProp
                   )}
 
                   {data && data.bulkCount === 0 && data.specificDates.length === 0 && (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
-                        <Check size={24} className="text-primary" />
+                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 mb-4 ring-8 ring-emerald-50 dark:ring-emerald-950/10">
+                        <Check size={32} strokeWidth={2.5} />
                       </div>
-                      <p>You have no missed {prayer} prayers!</p>
+                      <h3 className="text-xl font-bold text-foreground mb-2">Alhamdulillah</h3>
+                      <p className="text-sm text-muted-foreground max-w-[250px]">
+                        You are fully caught up with your {prayer} Qaza prayers.
+                      </p>
                     </div>
                   )}
 
