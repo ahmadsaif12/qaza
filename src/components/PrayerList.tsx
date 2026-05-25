@@ -163,8 +163,12 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             animate={{ opacity: 1, y: 0 }}
             key={prayer}
             onClick={() => handleToggle(prayer)}
+            role="button"
+            aria-pressed={isDone}
+            aria-disabled={isFuture}
+            aria-label={isDone ? `${prayer} is completed` : `Mark ${prayer} as prayed`}
             className={`
-              p-5 rounded-2xl flex items-center justify-between transition-all border
+              p-5 rounded-2xl flex items-center justify-between transition-all border select-none
               ${isFuture ? 'bg-muted/30 border-border/30 cursor-not-allowed opacity-60' : 
                 isDone ? 'bg-primary/5 border-primary/30 shadow-sm cursor-pointer' : 
                 'bg-card border-border/60 hover:border-primary/30 shadow-sm cursor-pointer'}
@@ -181,14 +185,15 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">{time}</p>
+              <p className="text-sm text-muted-foreground" aria-hidden="true">{time}</p>
             </div>
             
-            <motion.button 
+            <motion.div
               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center overflow-hidden transition-colors ${
                 isDone ? 'bg-primary border-primary text-primary-foreground' : 'border-border'
               }`}
               whileTap={{ scale: 0.85 }}
+              aria-hidden="true"
             >
               <motion.div
                 initial={false}
@@ -201,7 +206,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
               >
                 <Check size={16} strokeWidth={3} />
               </motion.div>
-            </motion.button>
+            </motion.div>
           </motion.div>
         )
       })}
