@@ -25,7 +25,7 @@ function getCalculationParams(methodId: number) {
     case 10: return CalculationMethod.Qatar();
     case 11: return CalculationMethod.Singapore();
     case 13: return CalculationMethod.Turkey();
-    default: return CalculationMethod.MuslimWorldLeague(); // fallback
+    default: return CalculationMethod.Karachi(); // fallback
   }
 }
 
@@ -43,7 +43,7 @@ export async function fetchPrayerTimes(
   lat: number, 
   lng: number, 
   date: Date = new Date(), 
-  method: number = 2, 
+  method: number = 1, 
   school: number = 0
 ): Promise<PrayerTimes> {
   const coordinates = new Coordinates(lat, lng);

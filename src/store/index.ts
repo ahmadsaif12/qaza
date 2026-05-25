@@ -65,7 +65,7 @@ export const useAppStore = create<AppState>()(
       setUserLocation: (userLocation) => set({ userLocation }),
       timeFormat: '12h',
       setTimeFormat: (timeFormat) => set({ timeFormat }),
-      calcMethod: 2, // Default to ISNA (2)
+      calcMethod: 1, // Default to Karachi (University of Islamic Sciences)
       setCalcMethod: (calcMethod) => set({ calcMethod }),
       asrMethod: 0, // Default to Standard (0)
       setAsrMethod: (asrMethod) => set({ asrMethod }),

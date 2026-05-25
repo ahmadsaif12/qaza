@@ -15,6 +15,13 @@
       "when": 1779659303027,
       "tag": "0001_last_ultimatum",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779712225733,
+      "tag": "0002_third_fixer",
+      "breakpoints": true
     }
   ]
 }

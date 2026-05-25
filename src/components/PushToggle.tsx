@@ -1,37 +1,36 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Switch } from "@/components/ui/switch"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
 import { BellRing } from "lucide-react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { useMounted } from "@/hooks/useMounted"
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
+import { useAppStore } from "@/store"
+import {
+  type ActionableNotificationOptions,
+  detectBrowserLocation,
+  getCurrentPushSubscription,
+  isPushSupported,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+} from "@/lib/browser-permissions"
 
 export function PushToggle() {
   const [isSubscribed, setIsSubscribed] = useState(false)
+  const setUserLocation = useAppStore((state) => state.setUserLocation)
   const mounted = useMounted()
-  const isSupported = mounted && 'serviceWorker' in navigator && 'PushManager' in window
+  const isSupported = mounted && isPushSupported()
 
   useEffect(() => {
     if (!isSupported) return
 
     let isActive = true
-    navigator.serviceWorker.ready.then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          if (isActive) setIsSubscribed(!!sub)
-        })
-      })
+    getCurrentPushSubscription().then((subscription) => {
+      if (isActive) {
+        setIsSubscribed(!!subscription)
+      }
+    })
 
     return () => {
       isActive = false
@@ -41,69 +40,28 @@ export function PushToggle() {
   const handleToggle = async (checked: boolean) => {
     try {
       if (!checked) {
-        // Unsubscribe
-        const reg = await navigator.serviceWorker.ready
-        const sub = await reg.pushManager.getSubscription()
-        if (sub) await sub.unsubscribe()
+        await unsubscribeFromPushNotifications()
         setIsSubscribed(false)
         toast.success("Notifications disabled")
         return
       }
 
-      // Subscribe
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        toast.error("Permission denied")
-        setIsSubscribed(false)
-        return
-      }
-
-      let lat = null;
-      let lng = null;
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let location
 
       try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
-      } catch (err) {
-        console.warn("Geolocation failed", err);
-        toast.warning("Location not provided. Accurate times might not work.");
+        location = await detectBrowserLocation()
+        setUserLocation({ lat: location.lat, lng: location.lng })
+      } catch (error) {
+        console.warn("Geolocation failed", error)
+        toast.warning("Location not provided. Accurate times might not work.")
       }
 
-      const reg = await navigator.serviceWorker.ready
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidPublicKey) {
-        toast.error("Push notifications are not configured yet.")
-        return
-      }
-
-      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey)
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
-      })
-
-      // Send to server
-      const body = {
-        subscription: sub,
-        ...(lat !== null && lng !== null ? { location: { lat, lng, timezone } } : {}),
-      }
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-
-      if (!res.ok) throw new Error("Failed to save subscription")
+      await subscribeToPushNotifications(location)
 
       setIsSubscribed(true)
       toast.success("Notifications enabled! We'll remind you to log prayers.")
-    } catch (e) {
-      console.error(e)
+    } catch (error) {
+      console.error(error)
       setIsSubscribed(false)
       toast.error("Failed to configure push notifications")
     }
@@ -126,29 +84,31 @@ export function PushToggle() {
         </div>
         <Switch checked={isSubscribed} onCheckedChange={handleToggle} />
       </div>
-      
+
       {isSubscribed && (
         <div className="pt-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="w-full text-muted-foreground hover:text-foreground"
             onClick={async () => {
-              const reg = await navigator.serviceWorker.ready;
-              reg.showNotification("Did you pray Fajr?", {
+              const registration = await navigator.serviceWorker.ready
+              const notificationOptions: ActionableNotificationOptions = {
                 body: "Quick check-in: mark it prayed if you completed it, or add it to Qaza if you missed it.",
                 icon: "/icon-192x192.png",
                 data: {
                   url: "/?checkin=fajr&date=test",
                   prayerName: "fajr",
                   date: "test",
-                  type: "prayer_checkin"
+                  type: "prayer_checkin",
                 },
                 actions: [
                   { action: "test_completed", title: "Yes, I prayed" },
-                  { action: "test_missed", title: "No, add to Qaza" }
-                ]
-              } as any);
+                  { action: "test_missed", title: "No, add to Qaza" },
+                ],
+              }
+
+              registration.showNotification("Did you pray Fajr?", notificationOptions)
             }}
           >
             <BellRing className="w-4 h-4 mr-2" />

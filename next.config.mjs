@@ -22,7 +22,6 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 export default withSerwist({
-  serverExternalPackages: ["nodemailer"],
   poweredByHeader: false,
   async headers() {
     return [

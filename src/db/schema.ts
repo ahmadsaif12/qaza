@@ -22,7 +22,7 @@ export const users = pgTable("user", {
   image: text("image"),
   password: text("password"),
   // App specific user preferences
-  calcMethod: integer("calcMethod").default(2), // ISNA by default
+  calcMethod: integer("calcMethod").default(1), // Karachi (University of Islamic Sciences) by default
   timezone: text("timezone"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),

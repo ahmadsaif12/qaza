@@ -7,7 +7,7 @@ export async function clearQazaClientStorage() {
   useAppStore.setState({
     offlineMutations: [],
     userLocation: null,
-    calcMethod: 2,
+    calcMethod: 1,
     asrMethod: 0,
     trackWitr: false,
     excusedRanges: [],

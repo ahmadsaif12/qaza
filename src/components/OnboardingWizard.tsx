@@ -1,28 +1,62 @@
 "use client"
 
-import { useState, useSyncExternalStore } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { CheckCircle2, History, Star, ChevronRight, X } from "lucide-react"
+import { useState, useSyncExternalStore, type ReactNode } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { BellRing, CheckCircle2, ChevronRight, Compass, History, Loader2, Star, X } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { updateUserLocation } from "@/actions/user"
+import { useAppStore } from "@/store"
+import {
+  type BrowserLocation,
+  detectBrowserLocation,
+  subscribeToPushNotifications,
+} from "@/lib/browser-permissions"
 
-const steps = [
+type StepId = "daily" | "location" | "reminders" | "qaza" | "streak"
+type ActionStatus = "idle" | "loading" | "success" | "error"
+
+const steps: Array<{
+  id: StepId
+  title: string
+  description: string
+  icon: ReactNode
+  color: string
+}> = [
   {
+    id: "daily",
     title: "Track Daily Prayers",
     description: "Easily log your 5 daily prayers to stay consistent and accountable with your faith.",
     icon: <CheckCircle2 className="w-16 h-16 text-primary" />,
     color: "bg-primary/10 border-primary/20",
   },
   {
+    id: "qaza",
     title: "Recover Missed Qaza",
     description: "Automatically calculate and recover your past missed prayers over time.",
     icon: <History className="w-16 h-16 text-blue-500" />,
     color: "bg-blue-500/10 border-blue-500/20",
   },
   {
+    id: "streak",
     title: "Build Your Streak",
-    description: "Gamify your consistency. Review your weekly progress and earn daily streaks!",
+    description: "Review your weekly progress and keep a steady daily rhythm.",
     icon: <Star className="w-16 h-16 text-amber-500 fill-amber-500" />,
     color: "bg-amber-500/10 border-amber-500/20",
+  },
+  {
+    id: "location",
+    title: "Set Prayer Times",
+    description: "Use your location so Qaza can calculate daily prayer times for where you are.",
+    icon: <Compass className="w-16 h-16 text-emerald-600" />,
+    color: "bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    id: "reminders",
+    title: "Daily Reminders",
+    description: "Turn on prayer check-ins now so you do not have to find this later in settings.",
+    icon: <BellRing className="w-16 h-16 text-primary" />,
+    color: "bg-primary/10 border-primary/20",
   },
 ]
 
@@ -35,15 +69,26 @@ function getOnboardingSnapshot() {
   return localStorage.getItem("qazatrack_onboarded") !== "true"
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 export function OnboardingWizard() {
   const shouldShowOnboarding = useSyncExternalStore(subscribeToOnboarding, getOnboardingSnapshot, () => false)
+  const userLocation = useAppStore((state) => state.userLocation)
+  const setUserLocation = useAppStore((state) => state.setUserLocation)
   const [dismissed, setDismissed] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const [detectedLocation, setDetectedLocation] = useState<BrowserLocation | null>(null)
+  const [locationStatus, setLocationStatus] = useState<ActionStatus>("idle")
+  const [reminderStatus, setReminderStatus] = useState<ActionStatus>("idle")
   const isOpen = shouldShowOnboarding && !dismissed
+  const step = steps[currentStep]
+  const isSetupStep = step.id === "location" || step.id === "reminders"
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1)
+      setCurrentStep((prev) => prev + 1)
     } else {
       finishOnboarding()
     }
@@ -54,6 +99,138 @@ export function OnboardingWizard() {
     setDismissed(true)
   }
 
+  const autoAdvance = (fromStep: number) => {
+    window.setTimeout(() => {
+      setCurrentStep((current) => {
+        if (current !== fromStep) {
+          return current
+        }
+
+        if (current < steps.length - 1) {
+          return current + 1
+        }
+
+        localStorage.setItem("qazatrack_onboarded", "true")
+        setDismissed(true)
+        return current
+      })
+    }, 450)
+  }
+
+  const handleDetectLocation = async () => {
+    const stepIndex = currentStep
+    setLocationStatus("loading")
+
+    try {
+      const location = await detectBrowserLocation()
+      const result = await updateUserLocation(location.lat, location.lng, location.timezone)
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to save location.")
+      }
+
+      setDetectedLocation(location)
+      setUserLocation({ lat: location.lat, lng: location.lng })
+      setLocationStatus("success")
+      toast.success("Location saved for prayer times.")
+      autoAdvance(stepIndex)
+    } catch (error) {
+      console.error("Onboarding location setup failed", error)
+      setLocationStatus("error")
+      toast.error(getErrorMessage(error, "Failed to detect location. Please check permissions."))
+    }
+  }
+
+  const handleEnableReminders = async () => {
+    const stepIndex = currentStep
+    setReminderStatus("loading")
+
+    try {
+      const subscriptionLocation =
+        detectedLocation ??
+        (userLocation
+          ? {
+              lat: userLocation.lat,
+              lng: userLocation.lng,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            }
+          : undefined)
+
+      await subscribeToPushNotifications(subscriptionLocation)
+      setReminderStatus("success")
+      toast.success("Daily reminders enabled.")
+      autoAdvance(stepIndex)
+    } catch (error) {
+      console.error("Onboarding reminder setup failed", error)
+      setReminderStatus("error")
+      toast.error(getErrorMessage(error, "Failed to enable reminders."))
+    }
+  }
+
+  const renderStepAction = () => {
+    if (step.id === "location") {
+      return (
+        <div className="mt-5 w-full">
+          <Button
+            onClick={handleDetectLocation}
+            disabled={locationStatus === "loading" || locationStatus === "success"}
+            variant={locationStatus === "success" ? "outline" : "default"}
+            className="h-10 w-full rounded-xl font-semibold"
+          >
+            {locationStatus === "loading" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Detecting Location
+              </>
+            ) : locationStatus === "success" ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Location Saved
+              </>
+            ) : (
+              <>
+                <Compass className="mr-2 h-4 w-4" />
+                Detect My Location
+              </>
+            )}
+          </Button>
+        </div>
+      )
+    }
+
+    if (step.id === "reminders") {
+      return (
+        <div className="mt-5 w-full">
+          <Button
+            onClick={handleEnableReminders}
+            disabled={reminderStatus === "loading" || reminderStatus === "success"}
+            variant={reminderStatus === "success" ? "outline" : "default"}
+            className="h-10 w-full rounded-xl font-semibold"
+          >
+            {reminderStatus === "loading" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enabling Reminders
+              </>
+            ) : reminderStatus === "success" ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Reminders Enabled
+              </>
+            ) : (
+              <>
+                <BellRing className="mr-2 h-4 w-4" />
+                Enable Daily Reminders
+              </>
+            )}
+          </Button>
+        </div>
+      )
+    }
+
+    return null
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -61,59 +238,62 @@ export function OnboardingWizard() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6"
+          className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-6"
         >
           <motion.div
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="w-full max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative"
+            className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-y-auto rounded-3xl bg-card shadow-2xl"
           >
-            <button 
+            <button
               onClick={finishOnboarding}
-              className="absolute top-4 right-4 p-2 text-muted-foreground hover:bg-muted rounded-full z-10 transition-colors"
+              className="absolute right-3 top-3 z-10 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted"
+              aria-label="Close onboarding"
             >
               <X size={20} />
             </button>
 
-            <div className="p-8 pt-12 flex flex-col items-center text-center min-h-[320px]">
+            <div className="flex min-h-[290px] flex-col items-center px-6 pb-5 pt-10 text-center sm:min-h-[310px]">
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={currentStep}
+                  key={step.id}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.2 }}
-                  className="flex flex-col items-center"
+                  className="flex w-full flex-col items-center"
                 >
-                  <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-6 border-2 ${steps[currentStep].color}`}>
-                    {steps[currentStep].icon}
+                  <div className={`mb-5 flex h-24 w-24 items-center justify-center rounded-full border-2 ${step.color}`}>
+                    <div className="scale-75">{step.icon}</div>
                   </div>
-                  <h2 className="text-2xl font-bold mb-3">{steps[currentStep].title}</h2>
-                  <p className="text-muted-foreground">{steps[currentStep].description}</p>
+                  <h2 className="mb-2 text-xl font-bold leading-tight">{step.title}</h2>
+                  <p className="max-w-[17rem] text-sm leading-6 text-muted-foreground">{step.description}</p>
+                  {renderStepAction()}
                 </motion.div>
               </AnimatePresence>
             </div>
 
-            <div className="px-8 pb-8 flex flex-col gap-6">
+            <div className="flex flex-col gap-4 px-6 pb-6">
               <div className="flex justify-center gap-2">
-                {steps.map((_, i) => (
-                  <div 
-                    key={i} 
+                {steps.map((item, index) => (
+                  <div
+                    key={item.id}
                     className={`h-2 rounded-full transition-all duration-300 ${
-                      i === currentStep ? "w-8 bg-primary" : "w-2 bg-primary/20"
+                      index === currentStep ? "w-8 bg-primary" : "w-2 bg-primary/20"
                     }`}
                   />
                 ))}
               </div>
 
-              <Button 
-                onClick={handleNext} 
-                className="w-full h-12 rounded-xl text-lg font-semibold"
+              <Button
+                onClick={handleNext}
+                variant={isSetupStep ? "ghost" : "default"}
+                className="h-11 w-full rounded-xl text-base font-semibold"
               >
-                {currentStep === steps.length - 1 ? "Start My Journey" : "Continue"}
-                {currentStep < steps.length - 1 && <ChevronRight className="ml-2 w-5 h-5" />}
+                {isSetupStep ? "Skip for now" : currentStep === steps.length - 1 ? "Start My Journey" : "Continue"}
+                {!isSetupStep && currentStep < steps.length - 1 && <ChevronRight className="ml-2 h-5 w-5" />}
               </Button>
             </div>
           </motion.div>

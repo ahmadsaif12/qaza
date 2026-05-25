@@ -1,12 +1,12 @@
 "use server"
 
 import bcrypt from "bcryptjs"
-import nodemailer from "nodemailer"
 import { headers } from "next/headers"
 import { and, eq } from "drizzle-orm"
 import { signIn } from "@/auth"
 import { db } from "@/db"
 import { users, verificationTokens } from "@/db/schema"
+import { sendPasswordResetOtpEmail, sendVerificationOtpEmail } from "@/lib/email"
 import {
   emailOnlySchema,
   getZodError,
@@ -34,35 +34,6 @@ async function enforceRateLimit(scope: string, email: string, maxAttempts: numbe
   if (emailError) return emailError
 
   return checkRateLimit(`${scope}:ip:${ip}`, maxAttempts, windowMs)
-}
-
-async function sendOtpEmail(input: {
-  email: string
-  otp: string
-  subject: string
-  textLabel: string
-}) {
-  if (!process.env.SMTP_HOST) {
-    console.warn("SMTP settings are not configured. OTP email was not sent.")
-    return
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  })
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: input.email,
-    subject: input.subject,
-    text: `${input.textLabel}: ${input.otp}`,
-    html: `<p>${input.textLabel}: <strong>${input.otp}</strong></p>`,
-  })
 }
 
 async function createAndStoreOtp(email: string) {
@@ -160,11 +131,9 @@ export async function registerUser(formData: FormData) {
     }
 
     const otp = await createAndStoreOtp(email)
-    await sendOtpEmail({
+    await sendVerificationOtpEmail({
       email,
       otp,
-      subject: "Verify your email for Qaza",
-      textLabel: "Your verification code is",
     })
 
     return { success: true }
@@ -226,11 +195,9 @@ export async function resendOtp(formData: FormData) {
     }
 
     const otp = await createAndStoreOtp(email)
-    await sendOtpEmail({
+    await sendVerificationOtpEmail({
       email,
       otp,
-      subject: "Verify your email for Qaza",
-      textLabel: "Your verification code is",
     })
 
     return { success: true }
@@ -264,11 +231,9 @@ export async function sendForgotPasswordOtp(formData: FormData) {
     }
 
     const otp = await createAndStoreOtp(email)
-    await sendOtpEmail({
+    await sendPasswordResetOtpEmail({
       email,
       otp,
-      subject: "Reset your password for Qaza",
-      textLabel: "Your password reset code is",
     })
 
     return { success: true }
