@@ -176,7 +176,9 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                handleToggle(prayer)
+                if (!e.repeat) {
+                  handleToggle(prayer)
+                }
               }
             }}
             tabIndex={0}
