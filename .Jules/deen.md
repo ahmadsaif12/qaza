@@ -5,3 +5,7 @@
 ## 2024-05-25 - Improve Screen Reader Accessibility and Mobile Touch Targets
 **Learning:** Core interaction components (like prayer logging cards) were relying entirely on visual color changes and icons to convey state, making them inaccessible to screen readers. Bottom navigation items lacked adequate touch target sizes and feedback.
 **Action:** Always ensure interactive elements have a `role="button"`, proper `aria-pressed`/`aria-disabled` states, and explicit `aria-label`s. Also, strictly adhere to mobile touch target standards (minimum 44x44px) with clear `active:scale` touch feedback for all navigation elements.
+
+## 2024-05-25 - Advanced Micro-Interactions & Delight
+**Learning:** A static mobile app feels like a desktop website. Adding tactile feedback and micro-animations significantly increases user engagement and satisfaction, especially for repetitive daily tasks like checking off prayers.
+**Action:** When appropriate, use Framer Motion for satisfying `whileTap` scaling, add celebratory animations (like ring bursts) upon task completion, and utilize native capabilities like `navigator.vibrate` to provide a truly native app feel.

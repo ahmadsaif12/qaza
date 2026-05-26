@@ -103,6 +103,8 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     return nowMins < pTimes[0].mins ? "Isha" : null;
   }, [timings, dateStr, nowTick]);
 
+  const [lastActionMessage, setLastActionMessage] = useState("")
+
   if (isTimingsLoading || isDbLoading) {
     return <div className="animate-pulse space-y-3">
       {requiredPrayers.map((p) => (
@@ -117,6 +119,7 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
   const handleToggle = (prayer: string) => {
     if (isFuture) {
       toast.error("You cannot log prayers for future dates!");
+      setLastActionMessage(`Cannot log ${prayer} for a future date.`)
       return;
     }
 
@@ -124,6 +127,9 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
     
     if (isCompleted) {
       toast.success(`Alhamdulillah, ${prayer} logged!`)
+      setLastActionMessage(`${prayer} marked as completed.`)
+    } else {
+      setLastActionMessage(`${prayer} marked as uncompleted.`)
     }
     
     addMutation({
@@ -134,6 +140,10 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
 
   return (
     <div className="w-full space-y-3">
+      {/* Visually hidden but announced region for screen readers */}
+      <div aria-live="polite" className="sr-only">
+        {lastActionMessage}
+      </div>
       {requiredPrayers.map((prayer) => {
         let time = timings ? timings[prayer as keyof typeof timings] : "--:--"
         if (prayer === "Witr") {
@@ -163,6 +173,13 @@ export function PrayerList({ selectedDate, onProgressChange }: PrayerListProps) 
             animate={{ opacity: 1, y: 0 }}
             key={prayer}
             onClick={() => handleToggle(prayer)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleToggle(prayer)
+              }
+            }}
+            tabIndex={0}
             role="button"
             aria-pressed={isDone}
             aria-disabled={isFuture}

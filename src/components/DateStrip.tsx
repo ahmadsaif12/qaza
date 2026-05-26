@@ -2,6 +2,7 @@
 
 import { format, subDays, isSameDay } from "date-fns"
 import { useRef, useEffect } from "react"
+import { motion } from "framer-motion"
 
 interface DateStripProps {
   selectedDate: Date;
@@ -33,11 +34,12 @@ export function DateStrip({ selectedDate, onSelectDate }: DateStripProps) {
         const isToday = isSameDay(date, today)
 
         return (
-          <button
+          <motion.button
             key={i}
+            whileTap={{ scale: 0.9 }}
             onClick={() => onSelectDate(date)}
             className={`
-              flex flex-col items-center justify-center min-w-[60px] h-20 rounded-2xl snap-center transition-all
+              flex flex-col items-center justify-center min-w-[60px] h-20 rounded-2xl snap-center transition-colors
               ${isSelected ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card text-muted-foreground border border-border/50 hover:border-primary/30'}
             `}
           >
@@ -48,7 +50,7 @@ export function DateStrip({ selectedDate, onSelectDate }: DateStripProps) {
             {isToday && (
               <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-primary-foreground' : 'bg-primary'}`} />
             )}
-          </button>
+          </motion.button>
         )
       })}
     </div>
