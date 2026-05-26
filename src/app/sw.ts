@@ -45,8 +45,46 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
+function getNotificationUrl(data: PushPayload["payload"]) {
+  const target = data?.url || "/";
+  const url = new URL(target, self.location.origin);
+
+  if (url.origin !== self.location.origin) {
+    return self.location.origin;
+  }
+
+  return url.href;
+}
+
+async function openOrFocusNotificationUrl(data: PushPayload["payload"]) {
+  const targetUrl = getNotificationUrl(data);
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+
+  for (const client of clientList) {
+    if ("focus" in client) {
+      if ("navigate" in client && client.url !== targetUrl) {
+        await client.navigate(targetUrl);
+      }
+
+      return client.focus();
+    }
+  }
+
+  return self.clients.openWindow(targetUrl);
+}
+
 self.addEventListener('push', (event) => {
-  const data = (event.data?.json() ?? {}) as PushPayload;
+  let data: PushPayload = {};
+
+  try {
+    data = (event.data?.json() ?? {}) as PushPayload;
+  } catch (error) {
+    console.warn("Failed to parse push payload", error);
+  }
+
   const title = data.title || "Prayer Reminder";
   const payload = data.payload ?? {};
   const options: ActionableNotificationOptions = {
@@ -84,6 +122,7 @@ self.addEventListener('notificationclick', (event) => {
     const actionToken = event.action === "completed"
       ? payload?.tokens?.completed
       : payload?.tokens?.missed;
+    const targetUrl = payload?.url ? payload : { url: "/" };
       
     event.waitUntil(
       fetch(endpoint, {
@@ -95,16 +134,15 @@ self.addEventListener('notificationclick', (event) => {
           date: payload?.date,
           actionToken,
         })
-      })
+      }).then((response) => {
+        if (!response.ok) {
+          return openOrFocusNotificationUrl(targetUrl);
+        }
+      }).catch(() => openOrFocusNotificationUrl(targetUrl))
     );
   } else {
     event.waitUntil(
-      self.clients.matchAll({ type: 'window' }).then((clientList) => {
-        if (clientList.length > 0) {
-          return clientList[0].focus();
-        }
-        return self.clients.openWindow(event.notification.data?.url || '/');
-      })
+      openOrFocusNotificationUrl(event.notification.data as PushPayload["payload"])
     );
   }
 });

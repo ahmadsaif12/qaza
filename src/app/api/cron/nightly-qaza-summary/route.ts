@@ -3,9 +3,10 @@ import { db } from '@/db';
 import { users, pushSubscriptions, notificationLogs, prayerLogs } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getUserLocalDate } from '@/lib/date-utils';
-import { sendPushNotification } from '@/lib/web-push';
 import { requireCronAuth } from '@/lib/cron-auth';
+import { sendCronPushNotifications } from '@/lib/cron-push';
 
+export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
   let sent = 0;
   let skipped = 0;
   let errors = 0;
+  let expiredSubscriptions = 0;
 
   for (const user of allUsers) {
     processed++;
@@ -86,24 +88,24 @@ export async function GET(request: Request) {
         }
       };
 
-      let sentToAtLeastOne = false;
-      for (const sub of subs) {
-        const result = await sendPushNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload
-        );
-        if (result.success) sentToAtLeastOne = true;
-      }
+      const delivery = await sendCronPushNotifications({
+        userId: user.id,
+        subscriptions: subs,
+        payload,
+      });
+      expiredSubscriptions += delivery.expiredSubscriptions;
 
-      if (sentToAtLeastOne) {
+      if (delivery.sentToAtLeastOne) {
         await db.insert(notificationLogs).values({
           userId: user.id,
           uniqueKey,
           type: "night_summary",
         });
         sent++;
-      } else {
+      } else if (delivery.failures > 0) {
         errors++;
+      } else {
+        skipped++;
       }
     } catch (e) {
       console.error("Error processing user", user.id, e);
@@ -111,5 +113,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, processed, sent, skipped, errors });
+  return NextResponse.json({ ok: true, processed, sent, skipped, errors, expiredSubscriptions });
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { db } from "@/db"
-import { pushSubscriptions } from "@/db/schema"
+import { savePushSubscriptionForUser } from "@/lib/push-subscriptions"
 import { getZodError, pushSubscribeBodySchema } from "@/lib/validation"
 
 export async function POST(req: Request) {
@@ -18,21 +17,7 @@ export async function POST(req: Request) {
 
     const { subscription } = parsed.data
 
-    await db
-      .insert(pushSubscriptions)
-      .values({
-        userId: session.user.id,
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      })
-      .onConflictDoUpdate({
-        target: [pushSubscriptions.userId, pushSubscriptions.endpoint],
-        set: {
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
-        },
-      })
+    await savePushSubscriptionForUser(session.user.id, subscription)
 
     return NextResponse.json({ success: true })
   } catch (error) {

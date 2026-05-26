@@ -26,6 +26,34 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray
 }
 
+function arrayBufferToBase64Url(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  let binary = ""
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+function shouldReplaceSubscription(subscription: PushSubscription, vapidPublicKey: string) {
+  const applicationServerKey = subscription.options.applicationServerKey
+  const isExpired = subscription.expirationTime !== null && subscription.expirationTime <= Date.now()
+
+  return isExpired || !applicationServerKey || arrayBufferToBase64Url(applicationServerKey) !== vapidPublicKey
+}
+
+async function deleteServerSubscription(endpoint: string) {
+  await fetch("/api/push/subscribe", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  }).catch((error) => {
+    console.warn("Failed to delete push subscription from server", error)
+  })
+}
+
 export function isPushSupported() {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window
 }
@@ -59,7 +87,11 @@ export async function getCurrentPushSubscription() {
 
 export async function unsubscribeFromPushNotifications() {
   const subscription = await getCurrentPushSubscription()
-  if (subscription) await subscription.unsubscribe()
+  if (!subscription) return
+
+  const endpoint = subscription.endpoint
+  await subscription.unsubscribe()
+  await deleteServerSubscription(endpoint)
 }
 
 export async function subscribeToPushNotifications(location?: BrowserLocation) {
@@ -79,12 +111,23 @@ export async function subscribeToPushNotifications(location?: BrowserLocation) {
   }
 
   const existingSubscription = await registration.pushManager.getSubscription()
+  const shouldReplace = existingSubscription
+    ? shouldReplaceSubscription(existingSubscription, vapidPublicKey)
+    : false
+
+  if (existingSubscription && shouldReplace) {
+    const endpoint = existingSubscription.endpoint
+    await existingSubscription.unsubscribe()
+    await deleteServerSubscription(endpoint)
+  }
+
   const subscription =
-    existingSubscription ??
-    (await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-    }))
+    existingSubscription && !shouldReplace
+      ? existingSubscription
+      : await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        })
 
   const response = await fetch("/api/push/subscribe", {
     method: "POST",

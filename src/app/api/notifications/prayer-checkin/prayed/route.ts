@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { markPrayerCompleted } from "@/lib/prayer-writes"
-import { verifyNotificationActionToken } from "@/lib/notification-tokens"
+import { resolveNotificationActionUserId } from "@/lib/notification-actions"
 import { getZodError, notificationActionRequestSchema } from "@/lib/validation"
 
 export async function POST(request: Request) {
@@ -14,23 +14,22 @@ export async function POST(request: Request) {
     }
 
     const { prayerName, date, actionToken } = parsed.data
-    let userId = session?.user?.id
+    const actionUser = resolveNotificationActionUserId({
+      sessionUserId: session?.user?.id,
+      actionToken,
+      prayerName,
+      date,
+      action: "completed",
+    })
 
-    if (!userId) {
-      const tokenPayload = verifyNotificationActionToken(actionToken, {
-        prayerName,
-        date,
-        action: "completed",
-      })
-
-      if (!tokenPayload) {
-        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-      }
-
-      userId = tokenPayload.userId
+    if (!actionUser.success) {
+      return NextResponse.json(
+        { success: false, error: actionUser.error },
+        { status: actionUser.status }
+      )
     }
 
-    await markPrayerCompleted({ userId, prayerName, date })
+    await markPrayerCompleted({ userId: actionUser.userId, prayerName, date })
 
     return NextResponse.json({ success: true })
   } catch (error) {

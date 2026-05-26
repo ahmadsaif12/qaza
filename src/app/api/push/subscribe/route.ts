@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { pushSubscriptions, users } from "@/db/schema"
+import { users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { getZodError, pushSubscribeBodySchema } from "@/lib/validation"
+import { deletePushSubscriptionForUser, savePushSubscriptionForUser } from "@/lib/push-subscriptions"
+import { getZodError, pushSubscribeBodySchema, pushUnsubscribeBodySchema } from "@/lib/validation"
 
 export async function POST(req: Request) {
   try {
@@ -30,25 +31,32 @@ export async function POST(req: Request) {
         .where(eq(users.id, session.user.id))
     }
 
-    await db
-      .insert(pushSubscriptions)
-      .values({
-        userId: session.user.id,
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      })
-      .onConflictDoUpdate({
-        target: [pushSubscriptions.userId, pushSubscriptions.endpoint],
-        set: {
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
-        },
-      })
+    await savePushSubscriptionForUser(session.user.id, subscription)
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error saving subscription:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const parsed = pushUnsubscribeBodySchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return NextResponse.json({ error: getZodError(parsed.error) }, { status: 400 })
+    }
+
+    await deletePushSubscriptionForUser(session.user.id, parsed.data.endpoint)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting subscription:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

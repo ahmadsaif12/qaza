@@ -129,9 +129,13 @@ export const pushSubscribeBodySchema = z
     })
   )
 
+export const pushUnsubscribeBodySchema = z.object({
+  endpoint: z.string().url().max(2048),
+})
+
 export const notificationActionRequestSchema = z.object({
   prayerName: prayerNameSchema,
-  date: notFutureIsoDateSchema,
+  date: isoDateSchema,
   actionToken: z.string().min(20).optional(),
 })
 
