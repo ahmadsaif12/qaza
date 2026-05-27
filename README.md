@@ -18,7 +18,7 @@
 
 In the busyness of modern life, it can be overwhelming to calculate and remember how many prayers are owed over the years. Our mission is to remove that friction, providing a beautiful, intuitive, and spiritually uplifting tool that encourages consistency and accountability in fulfilling our most fundamental obligation to Allah (SWT).
 
-*“Verily, the prayer is enjoined on the believers at fixed hours.”* — Quran (4:103)
+*"Verily, the prayer is enjoined on the believers at fixed hours."* — Quran (4:103)
 
 ---
 
@@ -62,26 +62,26 @@ This project is built with [Next.js](https://nextjs.org).
 ### Run Locally
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/moidrk/qaza.git
-   cd QazaTrack
-   ```
+```bash
+   git clone https://github.com/ahmadsaif12/qazq.git
+   cd qazq
+```
 
 2. **Install dependencies**
-   ```bash
+```bash
    npm install
-   ```
+```
 
 3. **Set up Environment Variables**
    Copy `.env.example` to `.env.local` and configure it.
-   ```bash
+```bash
    cp .env.example .env.local
-   ```
+```
 
 4. **Start the development server**
-   ```bash
+```bash
    npm run dev
-   ```
+```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 

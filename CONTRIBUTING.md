@@ -13,8 +13,8 @@ By contributing to this repository, you agree that your contributions will be li
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/moidrk/qaza.git
-   cd qaza
+   git clone https://github.com/ahmadsaif12/qazq.git
+   cd qazq
    ```
 3. **Install dependencies**:
    ```bash
@@ -33,7 +33,7 @@ By contributing to this repository, you agree that your contributions will be li
 ## How to Contribute
 
 ### 1. Find or Create an Issue
-Before you start writing code, check the [Issues](https://github.com/YOUR-USERNAME/QazaTrack/issues) to see if someone is already working on what you want to do. If not, feel free to open a new issue to discuss your proposed changes.
+Before you start writing code, check the [Issues](https://github.com/ahmadsaif12/qazq/issues) to see if someone is already working on what you want to do. If not, feel free to open a new issue to discuss your proposed changes.
 
 ### 2. Create a Branch
 Create a branch for your feature or bug fix:
