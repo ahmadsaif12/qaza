@@ -12,6 +12,10 @@ import { useEffect } from 'react'
 import { getUserPreferences } from '@/actions/user'
 import { useAppStore } from '@/store'
 
+const QUERY_CACHE_KEY = 'qazatrack-query-cache'
+const QUERY_CACHE_BUSTER = 'qazatrack-prayer-times-v1'
+const MAX_PERSISTED_QUERY_CACHE_BYTES = 250_000
+
 function SyncRunner() {
   useSyncMutations();
   return null;
@@ -55,11 +59,32 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const persister = createAsyncStoragePersister({
     storage: {
-      getItem: async (key) => await get(key) || null,
-      setItem: async (key, value) => await set(key, value),
+      getItem: async (key) => {
+        const value = await get(key)
+
+        if (typeof value !== 'string') {
+          await del(key)
+          return null
+        }
+
+        if (value.length > MAX_PERSISTED_QUERY_CACHE_BYTES) {
+          await del(key)
+          return null
+        }
+
+        return value
+      },
+      setItem: async (key, value) => {
+        if (value.length > MAX_PERSISTED_QUERY_CACHE_BYTES) {
+          await del(key)
+          return
+        }
+
+        await set(key, value)
+      },
       removeItem: async (key) => await del(key),
     },
-    key: 'qazatrack-query-cache'
+    key: QUERY_CACHE_KEY,
   })
 
   return (
@@ -67,9 +92,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       client={queryClient}
       persistOptions={{
         persister,
+        buster: QUERY_CACHE_BUSTER,
         maxAge: 1000 * 60 * 60 * 24,
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) => query.queryKey[0] === 'prayerTimes',
+          shouldDehydrateQuery: (query) =>
+            query.queryKey.length > 0 && query.queryKey[0] === 'prayerTimes',
         },
       }}
     >

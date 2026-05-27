@@ -2,8 +2,9 @@
 
 import bcrypt from "bcryptjs"
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { and, eq } from "drizzle-orm"
-import { signIn } from "@/auth"
+import { isGoogleAuthConfigured, signIn } from "@/auth"
 import { db } from "@/db"
 import { users, verificationTokens } from "@/db/schema"
 import { sendPasswordResetOtpEmail, sendVerificationOtpEmail } from "@/lib/email"
@@ -208,6 +209,10 @@ export async function resendOtp(formData: FormData) {
 }
 
 export async function googleSignIn() {
+  if (!isGoogleAuthConfigured) {
+    redirect("/login?error=GoogleNotConfigured")
+  }
+
   await signIn("google", { redirectTo: "/" })
 }
 

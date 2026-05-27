@@ -11,6 +11,7 @@ import { updateUserPreferences, updateUserLocation } from "@/actions/user"
 import { useMounted } from "@/hooks/useMounted"
 
 const CALC_METHODS = [
+  { id: 14, name: "Nepal / South Asia (18° Fajr, 18° Isha)" },
   { id: 1, name: "Karachi (Univ of Islamic Sciences)" },
   { id: 2, name: "ISNA (North America)" },
   { id: 3, name: "MWL (Muslim World League)" },
@@ -66,11 +67,19 @@ export function TimingSettings() {
         setDetecting(false)
       },
       (error) => {
-        console.error("Geolocation error", error)
-        toast.error("Failed to detect location. Please check permissions.")
+        const message =
+          error.code === error.PERMISSION_DENIED
+            ? "Location permission was denied. Allow location access in your browser."
+            : error.code === error.POSITION_UNAVAILABLE
+              ? "Location is unavailable right now. Try again or check device location settings."
+              : error.code === error.TIMEOUT
+                ? "Location detection timed out. Try again near a window or after enabling device location."
+                : "Failed to detect location. Please check permissions."
+
+        toast.error(message)
         setDetecting(false)
       },
-      { timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 5 * 60 * 1000, timeout: 20000 }
     )
   }
 

@@ -60,7 +60,7 @@ export async function checkRateLimit(key: string, maxAttempts: number, windowMs:
       "count" AS count,
       GREATEST(1, CEIL(EXTRACT(EPOCH FROM ("resetAt" - now())))::int) AS "retryAfterSeconds"
   `)
-  const entry = result.rows[0]
+  const entry = result[0]
 
   if (entry.count > maxAttempts) {
     return `Too many attempts. Try again in ${entry.retryAfterSeconds} seconds.`

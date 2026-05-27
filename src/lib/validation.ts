@@ -2,7 +2,7 @@ import { z } from "zod"
 
 export const PRAYER_NAMES = ["fajr", "dhuhr", "asr", "maghrib", "isha", "witr"] as const
 export const PRAYER_STATUSES = ["completed", "missed", "qaza_completed", "excused"] as const
-export const CALC_METHODS = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13] as const
+export const CALC_METHODS = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14] as const
 export const ASR_METHODS = [0, 1] as const
 
 export const prayerNameSchema = z

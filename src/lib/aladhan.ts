@@ -15,6 +15,7 @@ export interface PrayerTimes {
 function getCalculationParams(methodId: number) {
   switch (methodId) {
     case 1: return CalculationMethod.Karachi();
+    case 14: return CalculationMethod.Karachi();
     case 2: return CalculationMethod.NorthAmerica(); // ISNA
     case 3: return CalculationMethod.MuslimWorldLeague();
     case 4: return CalculationMethod.UmmAlQura();
